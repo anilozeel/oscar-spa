@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo, useState, useCallback } from 'react'
 import * as mock from '../data/mock.js'
+import { notifyAssignment } from '../lib/notify.js'
 
 const StoreCtx = createContext(null)
 export const useStore = () => useContext(StoreCtx)
@@ -88,6 +89,9 @@ export function StoreProvider({ children }) {
     }
     setAppointments((list) => [...list, { ...draft, id: uid() }])
     toast('Randevu oluşturuldu')
+    if (draft.therapistId && !draft.freeHammam) {
+      notifyAssignment({ therapist: draft.therapist, service: draft.service, time: draft.time, guest: draft.guest })
+    }
     return true
   }, [findConflict, toast])
 
@@ -111,6 +115,9 @@ export function StoreProvider({ children }) {
     }
     setAppointments((l) => l.map((a) => (a.id === id ? { ...a, ...patch } : a)))
     if (!opts.silent) toast('Randevu güncellendi')
+    if (patch.therapistId && patch.therapistId !== cur.therapistId) {
+      notifyAssignment({ therapist: draft.therapist, service: draft.service, time: draft.time, guest: draft.guest })
+    }
     return true
   }, [appointments, findConflict, toast])
 
