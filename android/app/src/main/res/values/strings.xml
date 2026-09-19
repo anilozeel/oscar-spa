@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">OscarSpa</string>
+    <string name="title_activity_main">OscarSpa</string>
+    <string name="package_name">com.oscarspa.app</string>
+    <string name="custom_url_scheme">com.oscarspa.app</string>
+</resources>

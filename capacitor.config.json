@@ -1,0 +1,9 @@
+{
+  "appId": "com.oscarspa.app",
+  "appName": "OscarSpa",
+  "webDir": "dist",
+  "backgroundColor": "#2c4a38",
+  "android": {
+    "backgroundColor": "#2c4a38"
+  }
+}
