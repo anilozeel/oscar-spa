@@ -31,14 +31,18 @@ export function StoreProvider({ children }) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200)
   }, [])
 
-  // --- Auth -----------------------------------------------------------------
-  const login = useCallback((roleId, name) => {
-    const role = mock.ROLES.find((r) => r.id === roleId) || mock.ROLES[0]
-    const nm = name?.trim() || role.name.split(' / ')[0]
-    const initials = nm.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-    const u = { name: nm, role: role.id, roleName: role.name, initials }
+  // --- Auth (kullanıcı adı + şifre) -----------------------------------------
+  const login = useCallback((username, password) => {
+    const acc = mock.ACCOUNTS.find(
+      (a) => a.username.toLowerCase() === String(username || '').trim().toLowerCase() && a.password === password
+    )
+    if (!acc) return false
+    const role = mock.ROLES.find((r) => r.id === acc.role) || mock.ROLES[0]
+    const initials = acc.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+    const u = { name: acc.name, username: acc.username, role: acc.role, roleName: role.name, initials, therapistId: acc.therapistId || null }
     setUser(u)
     try { localStorage.setItem('oscarspa.user', JSON.stringify(u)) } catch { /* no-op */ }
+    return true
   }, [])
   const logout = useCallback(() => {
     setUser(null)

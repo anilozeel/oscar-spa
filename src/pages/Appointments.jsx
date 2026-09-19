@@ -26,7 +26,9 @@ const STATUS_TAG = {
 
 export default function Appointments() {
   const store = useStore()
-  const { visibleAppointments, therapists, fmtTRY, updateAppointment, toast } = store
+  const { visibleAppointments, therapists, fmtTRY, updateAppointment, toast, user } = store
+  const isTherapist = user?.role === 'therapist'
+  const myId = user?.therapistId
   const [open, setOpen] = useState(false)
   const [detail, setDetail] = useState(null)
   const [view, setView] = useState('day')
@@ -35,7 +37,13 @@ export default function Appointments() {
 
   const base = new Date(); base.setDate(base.getDate() + offset)
   const dateLabel = base.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  const dayAppts = offset === 0 ? visibleAppointments : []
+  // Terapist ise sadece kendi randevuları
+  const dayAppts = offset === 0
+    ? (isTherapist ? visibleAppointments.filter((a) => a.therapistId === myId) : visibleAppointments)
+    : []
+  const calTherapists = isTherapist
+    ? therapists.filter((t) => t.id === myId)
+    : therapists.filter((t) => t.active && !hidden.has(t.id))
 
   const toggle = (id) => setHidden((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
 
@@ -59,14 +67,14 @@ export default function Appointments() {
     <div className="page">
       <PageHead
         title="Randevu Takvimi"
-        sub="Terapist bazlı günlük görünüm — her randevu ilgili terapistin sütununda görünür."
+        sub={isTherapist ? 'Kendi günlük programınız — yalnızca size atanan randevular.' : 'Terapist bazlı günlük görünüm — her randevu ilgili terapistin sütununda görünür.'}
         action={
           <div className="center gap">
             <div className="seg">
               <button className={view === 'day' ? 'on' : ''} onClick={() => setView('day')}>Günlük görünüm</button>
               <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>Liste</button>
             </div>
-            <Button icon="plus" onClick={() => setOpen(true)}>Yeni Randevu</Button>
+            {!isTherapist && <Button icon="plus" onClick={() => setOpen(true)}>Yeni Randevu</Button>}
           </div>
         }
       />
@@ -79,45 +87,53 @@ export default function Appointments() {
           <button className="icon-btn" style={{ width: 38, height: 38 }} onClick={() => setOffset((o) => o + 1)}><Icon.chevronR /></button>
           <Button variant="ghost" sm onClick={() => setOffset(0)}>Bugün</Button>
         </div>
-        <div className="center gap-sm wrap">
-          {therapists.filter((t) => t.active).map((t) => (
-            <button key={t.id} className={`tf-chip ${hidden.has(t.id) ? 'off' : ''}`} onClick={() => toggle(t.id)}>
-              <span className="tf-dot" style={{ background: t.color }} />{t.name}
-            </button>
-          ))}
-        </div>
+        {!isTherapist && (
+          <div className="center gap-sm wrap">
+            {therapists.filter((t) => t.active).map((t) => (
+              <button key={t.id} className={`tf-chip ${hidden.has(t.id) ? 'off' : ''}`} onClick={() => toggle(t.id)}>
+                <span className="tf-dot" style={{ background: t.color }} />{t.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {view === 'day' ? (
-        <DayCalendar appts={dayAppts} therapists={therapists.filter((t) => t.active && !hidden.has(t.id))} onPick={setDetail} onReschedule={onReschedule} empty={offset !== 0} />
+        <DayCalendar appts={dayAppts} therapists={calTherapists} onPick={setDetail} onReschedule={onReschedule} canEdit={!isTherapist} empty={offset !== 0} />
       ) : (
         <Panel className="section-gap" title={dateLabel}>
           <table className="table">
-            <thead><tr><th>Saat</th><th>Hizmet</th><th>Misafir</th><th>Terapist</th><th>Oda</th><th className="num">Tutar</th><th>Durum</th></tr></thead>
+            <thead><tr><th>Saat</th><th>Hizmet</th><th>Misafir</th>{!isTherapist && <th>Terapist</th>}<th>Oda</th>{!isTherapist && <th className="num">Tutar</th>}<th>Durum</th></tr></thead>
             <tbody>
               {[...dayAppts].sort((a, b) => a.time.localeCompare(b.time)).map((a) => (
                 <tr key={a.id} style={{ cursor: 'pointer' }} onClick={() => setDetail(a)}>
                   <td className="nowrap" style={{ fontWeight: 600 }}>{a.time}</td>
                   <td>{a.service} <Tags a={a} /></td>
                   <td>{a.guest}</td>
-                  <td className={!a.therapist ? 'muted' : ''}>{a.therapist || '—'}</td>
+                  {!isTherapist && <td className={!a.therapist ? 'muted' : ''}>{a.therapist || '—'}</td>}
                   <td>{a.room}</td>
-                  <td className="num money">{a.price ? fmtTRY(a.price) : '—'}</td>
+                  {!isTherapist && <td className="num money">{a.price ? fmtTRY(a.price) : '—'}</td>}
                   <td><Badge kind={STATUS_TAG[a.status].kind}>{STATUS_TAG[a.status].label}</Badge></td>
                 </tr>
               ))}
-              {!dayAppts.length && <tr><td colSpan="7" className="muted" style={{ textAlign: 'center', padding: 30 }}>Bu güne ait randevu yok.</td></tr>}
+              {!dayAppts.length && <tr><td colSpan={isTherapist ? 5 : 7} className="muted" style={{ textAlign: 'center', padding: 30 }}>Bu güne ait randevu yok.</td></tr>}
             </tbody>
           </table>
         </Panel>
       )}
 
       <div className="section-gap">
-        <Helper><b>İpucu:</b> Randevuyu başka bir terapiste veya saate <b>sürükleyip bırakın</b>; düzenlemek için üstüne <b>tıklayın</b>. Aynı terapist/oda aynı saatte ikinci kez rezerve edilemez — sistem çakışmayı engeller.</Helper>
+        <Helper>
+          {isTherapist
+            ? <><b>Programınız:</b> Yalnızca size atanan randevuları görürsünüz. Detay için randevuya tıklayın; işleme başladığınızda / bitirdiğinizde durumunu güncelleyebilirsiniz.</>
+            : <><b>İpucu:</b> Randevuyu başka bir terapiste veya saate <b>sürükleyip bırakın</b>; düzenlemek için üstüne <b>tıklayın</b>. Aynı terapist/oda aynı saatte ikinci kez rezerve edilemez — sistem çakışmayı engeller.</>}
+        </Helper>
       </div>
 
-      {open && <NewAppointment store={store} onClose={() => setOpen(false)} />}
-      {detail && <EditAppt appt={detail} store={store} onClose={() => setDetail(null)} />}
+      {open && !isTherapist && <NewAppointment store={store} onClose={() => setOpen(false)} />}
+      {detail && (isTherapist
+        ? <ApptView appt={detail} store={store} onClose={() => setDetail(null)} />
+        : <EditAppt appt={detail} store={store} onClose={() => setDetail(null)} />)}
     </div>
   )
 }
@@ -133,7 +149,7 @@ function Tags({ a }) {
 }
 
 // ---- Terapist sütunlu günlük takvim (pointer tabanlı sürükle-bırak) ---------
-function DayCalendar({ appts, therapists, onPick, onReschedule, empty }) {
+function DayCalendar({ appts, therapists, onPick, onReschedule, canEdit = true, empty }) {
   const cols = [...therapists.map((t) => ({ id: t.id, name: t.name, color: t.color }))]
   const hasNone = appts.some((a) => !a.therapistId)
   if (hasNone) cols.push({ id: 'none', name: 'Terapistsiz / Hamam', color: '#b8935a' })
@@ -212,13 +228,12 @@ function DayCalendar({ appts, therapists, onPick, onReschedule, empty }) {
                 {list.map((a) => {
                   const top = (toMin(a.time) - DAY_START) * PXPM
                   const h = Math.max((toMin(a.end) - toMin(a.time)) * PXPM, 26)
+                  const handlers = canEdit
+                    ? { onPointerDown: (e) => onPointerDown(e, a, ci), onPointerMove, onPointerUp, onPointerCancel }
+                    : { onClick: () => onPick(a) }
                   return (
-                    <button key={a.id} className={`tcal-appt ${drag?.id === a.id ? 'dragging' : ''}`}
-                      onPointerDown={(e) => onPointerDown(e, a, ci)}
-                      onPointerMove={onPointerMove}
-                      onPointerUp={onPointerUp}
-                      onPointerCancel={onPointerCancel}
-                      style={{ top, height: h, background: c.color, opacity: a.status === 'done' ? 0.55 : 1 }}>
+                    <button key={a.id} className={`tcal-appt ${drag?.id === a.id ? 'dragging' : ''}`} {...handlers}
+                      style={{ top, height: h, background: c.color, opacity: a.status === 'done' ? 0.55 : 1, cursor: canEdit ? undefined : 'pointer' }}>
                       <div className="ta-time">{a.time} – {a.end}</div>
                       <div className="ta-name">{a.guest} · {a.service}{a.variant === 'package' ? ' (PAKET)' : ''}</div>
                     </button>
@@ -243,6 +258,32 @@ function DayCalendar({ appts, therapists, onPick, onReschedule, empty }) {
 
       {empty && <div className="empty" style={{ padding: 24 }}>Bu güne ait randevu yok. <b>Bugün</b>’e dönün veya yeni randevu ekleyin.</div>}
     </div>
+  )
+}
+
+// ---- Randevu görünümü (terapist — salt okunur, para yok) --------------------
+function ApptView({ appt, store, onClose }) {
+  const { updateAppointment } = store
+  const setStatus = (s) => { updateAppointment(appt.id, { status: s }); onClose() }
+  return (
+    <Modal title={appt.service} sub={`${appt.time} – ${appt.end}`} onClose={onClose}
+      footer={<>
+        <Button variant="ghost" onClick={onClose}>Kapat</Button>
+        {appt.status === 'booked' && <Button icon="clock" onClick={() => setStatus('inservice')}>İşleme Başla</Button>}
+        {appt.status === 'inservice' && <Button icon="check" onClick={() => setStatus('done')}>Tamamla</Button>}
+      </>}>
+      <div className="center gap-sm wrap" style={{ marginBottom: 14 }}>
+        <Badge kind={STATUS_TAG[appt.status].kind}>{STATUS_TAG[appt.status].label}</Badge>
+        <Tags a={appt} />
+      </div>
+      <div className="card" style={{ background: 'var(--surface-2)' }}>
+        <div className="kv"><span className="k">Hizmet</span><span className="v">{appt.service}{appt.variant === 'package' ? ' · Paket' : ''}</span></div>
+        <div className="kv"><span className="k">Misafir</span><span className="v">{appt.guest}</span></div>
+        <div className="kv"><span className="k">Oda</span><span className="v">{appt.room}</span></div>
+        <div className="kv"><span className="k">Saat</span><span className="v">{appt.time} – {appt.end}</span></div>
+      </div>
+      <p className="muted small" style={{ marginTop: 12 }}>Fiyat, prim ve ödeme bilgileri terapist görünümünde gösterilmez.</p>
+    </Modal>
   )
 }
 

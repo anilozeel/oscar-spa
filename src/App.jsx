@@ -15,6 +15,12 @@ import Finance from './pages/Finance.jsx'
 import Reports from './pages/Reports.jsx'
 import Settings from './pages/Settings.jsx'
 
+// Rol yetkisi olmayan sayfaya URL ile erişimi engeller (ör. terapist -> /finans)
+function Guarded({ k, children }) {
+  const { canAccess } = useStore()
+  return canAccess(k) ? children : <Navigate to="/" replace />
+}
+
 export default function App() {
   const { user } = useStore()
   if (!user) return <Login />
@@ -23,17 +29,17 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/randevular" element={<Appointments />} />
-        <Route path="/spa-floor" element={<SpaFloor />} />
-        <Route path="/misafirler" element={<Guests />} />
-        <Route path="/terapistler" element={<Therapists />} />
-        <Route path="/hizmetler" element={<Services />} />
-        <Route path="/paketler" element={<Packages />} />
-        <Route path="/satis" element={<Sales />} />
-        <Route path="/stok" element={<Inventory />} />
-        <Route path="/finans" element={<Finance />} />
-        <Route path="/raporlar" element={<Reports />} />
-        <Route path="/ayarlar" element={<Settings />} />
+        <Route path="/randevular" element={<Guarded k="appointments"><Appointments /></Guarded>} />
+        <Route path="/spa-floor" element={<Guarded k="floor"><SpaFloor /></Guarded>} />
+        <Route path="/misafirler" element={<Guarded k="guests"><Guests /></Guarded>} />
+        <Route path="/terapistler" element={<Guarded k="therapists"><Therapists /></Guarded>} />
+        <Route path="/hizmetler" element={<Guarded k="services"><Services /></Guarded>} />
+        <Route path="/paketler" element={<Guarded k="packages"><Packages /></Guarded>} />
+        <Route path="/satis" element={<Guarded k="sales"><Sales /></Guarded>} />
+        <Route path="/stok" element={<Guarded k="inventory"><Inventory /></Guarded>} />
+        <Route path="/finans" element={<Guarded k="finance"><Finance /></Guarded>} />
+        <Route path="/raporlar" element={<Guarded k="reports"><Reports /></Guarded>} />
+        <Route path="/ayarlar" element={<Guarded k="settings"><Settings /></Guarded>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

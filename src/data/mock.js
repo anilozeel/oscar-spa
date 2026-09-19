@@ -16,12 +16,20 @@ export const ROLES = [
   { id: 'accounting', name: 'Muhasebe',            icon: 'finance',   desc: 'Kasa, komisyon, gelir/gider, fatura' },
 ]
 
+// Kullanıcı hesapları (şimdilik demo — ileride gerçek backend + şifreleme)
+// therapistId dolu ise kullanıcı sadece o terapistin randevularını görür.
+export const ACCOUNTS = [
+  { username: 'cigdem', password: 'cigdem123', role: 'owner',     name: 'Çiğdem', therapistId: null },
+  { username: 'dita',   password: 'dita123',   role: 'therapist', name: 'Dita',   therapistId: 't1' },
+  { username: 'sitti',  password: 'sitti123',  role: 'therapist', name: 'Sitti',  therapistId: 't2' },
+]
+
 // Rol bazlı menü erişimi
 export const ROLE_ACCESS = {
   owner:      '*',
   manager:    ['dashboard','appointments','floor','guests','therapists','services','packages','sales','inventory','finance','reports','settings'],
   reception:  ['dashboard','appointments','floor','guests','services','packages','sales'],
-  therapist:  ['dashboard','appointments','floor','guests'],
+  therapist:  ['dashboard','appointments','floor'], // sadece takvim/kendi programı — para yok
   accounting: ['dashboard','sales','finance','reports','inventory'],
 }
 

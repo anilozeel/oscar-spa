@@ -5,13 +5,15 @@ import Icon from '../components/icons.jsx'
 import { Button } from '../components/ui.jsx'
 
 export default function Login() {
-  const { login, ROLES } = useStore()
-  const [role, setRole] = useState('owner')
-  const [name, setName] = useState('')
+  const { login } = useStore()
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [err, setErr] = useState(false)
 
   const submit = (e) => {
     e.preventDefault()
-    login(role, name)
+    const ok = login(username, password)
+    if (!ok) setErr(true)
   }
 
   return (
@@ -40,46 +42,39 @@ export default function Login() {
 
       <div className="login-form-wrap">
         <form className="login-card" onSubmit={submit}>
-          <h2>Tekrar hoş geldiniz</h2>
-          <p className="lc-sub">Devam etmek için rolünüzü seçin ve giriş yapın.</p>
+          <h2>Giriş yap</h2>
+          <p className="lc-sub">Kullanıcı adı ve şifrenizle devam edin.</p>
 
           <div className="field" style={{ marginBottom: 16 }}>
-            <label>Ad Soyad <span className="muted">(opsiyonel)</span></label>
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)}
-                   placeholder="Örn. Deniz Kaya" />
+            <label>Kullanıcı adı</label>
+            <input className="input" autoFocus autoCapitalize="none" autoCorrect="off"
+              value={username} onChange={(e) => { setUsername(e.target.value); setErr(false) }}
+              placeholder="Örn. cigdem" />
           </div>
 
           <div className="field">
-            <label>Rol seçimi</label>
-            <div className="role-grid">
-              {ROLES.map((r) => {
-                const I = Icon[r.icon]
-                return (
-                  <button type="button" key={r.id}
-                    className={`role-pick ${role === r.id ? 'on' : ''}`}
-                    onClick={() => setRole(r.id)}>
-                    <I />
-                    <div>
-                      <div className="rp-t">{r.name.split(' / ')[0]}</div>
-                      <div className="rp-s">{r.desc.split(',')[0]}</div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+            <label>Şifre</label>
+            <input className="input" type="password"
+              value={password} onChange={(e) => { setPassword(e.target.value); setErr(false) }}
+              placeholder="••••••••" />
           </div>
 
-          <div className="field" style={{ marginTop: 18 }}>
-            <label>Şifre</label>
-            <input className="input" type="password" defaultValue="••••••••" />
-          </div>
+          {err && (
+            <div className="login-err">
+              <Icon.info /> Kullanıcı adı veya şifre hatalı.
+            </div>
+          )}
 
           <Button block type="submit" icon="chevronR" style={{ marginTop: 22 }}>
             Panele giriş yap
           </Button>
-          <p className="muted small" style={{ textAlign: 'center', marginTop: 16 }}>
-            Demo giriş — herhangi bir rol ile devam edebilirsiniz.
-          </p>
+
+          <div className="login-hint">
+            <div className="lh-title">Demo hesaplar</div>
+            <div className="lh-row"><b>Yönetici</b><span>cigdem / cigdem123</span></div>
+            <div className="lh-row"><b>Terapist</b><span>dita / dita123</span></div>
+            <div className="lh-row"><b>Terapist</b><span>sitti / sitti123</span></div>
+          </div>
         </form>
       </div>
     </div>
