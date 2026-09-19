@@ -624,3 +624,7 @@ textarea.input { resize: vertical; min-height: 84px; }
 .tcal-appt .ta-time { font-size: 11px; opacity: .92; }
 .tcal-appt .ta-name { font-weight: 600; font-size: 12.5px; line-height: 1.25; margin-top: 1px; }
 @media (max-width: 680px) { .cal-date { min-width: 0; font-size: 13.5px; } }
+.tcal-appt { cursor: grab; }
+.tcal-appt:active { cursor: grabbing; }
+.tcal.dragging .tcal-appt { pointer-events: none; }
+.tcal.dragging .tcal-col { background: var(--sage-tint); }

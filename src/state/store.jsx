@@ -92,16 +92,45 @@ export function StoreProvider({ children }) {
     toast('Randevu iptal edildi')
   }, [toast])
 
+  // --- Randevu güncelleme (düzenleme + sürükle-bırak) -----------------------
+  const updateAppointment = useCallback((id, patch, opts = {}) => {
+    const cur = appointments.find((a) => a.id === id)
+    if (!cur) return false
+    const draft = { ...cur, ...patch }
+    const conflict = findConflict(
+      { time: draft.time, end: draft.end, therapistId: draft.therapistId, roomId: draft.roomId },
+      id
+    )
+    if (conflict) {
+      toast(`${conflict.name} bu saatte dolu — çakışma engellendi`, 'warn')
+      return false
+    }
+    setAppointments((l) => l.map((a) => (a.id === id ? { ...a, ...patch } : a)))
+    if (!opts.silent) toast('Randevu güncellendi')
+    return true
+  }, [appointments, findConflict, toast])
+
+  // --- Paket yardımcıları ---------------------------------------------------
+  const activePackageFor = useCallback(
+    (guestId) => packages.find((p) => p.guestId === guestId && p.used < p.total),
+    [packages]
+  )
+  const usePackageSession = useCallback((pkgId) => {
+    setPackages((l) => l.map((p) => (p.id === pkgId ? { ...p, used: Math.min(p.total, p.used + 1) } : p)))
+  }, [])
+
   // --- Adisyon kapatma (Sayfa 08/09): prim ödeme anındaki terapiste yazılır --
   // override: girişte karar verilen randevularda seçilen gerçek hizmet
   //           { serviceName, price, commissionType }
-  const closeTicket = useCallback((appt, { therapistId, payType, hideAfter, override }) => {
+  // payType 'package' -> tutar 0, misafirin paketinden 1 seans düşülür
+  const closeTicket = useCallback((appt, { therapistId, payType, hideAfter, override, packageId }) => {
     const service = mock.services.find((s) => s.id === appt.serviceId)
     // etkin prim tipi: adisyonda seçilen > randevuda kayıtlı > hizmet tanımı
     const effType = override?.commissionType ?? appt.commissionType ?? service?.commissionType
     const isFree = appt.freeHammam || effType === 'none'
-    const amount = override?.price ?? appt.price
-    const serviceName = override?.serviceName ?? appt.service
+    const fromPackage = payType === 'package'
+    const amount = fromPackage ? 0 : (override?.price ?? appt.price)
+    const serviceName = (override?.serviceName ?? appt.service) + (fromPackage ? ' (Paketten)' : '')
     const therapist = mock.therapists.find((t) => t.id === therapistId)
     const commissionUsd = isFree ? 0 : mock.commissionFor(effType)
 
@@ -126,12 +155,15 @@ export function StoreProvider({ children }) {
           therapistId: isFree ? null : therapistId, therapist: isFree ? null : (therapist?.name || a.therapist) }
       : a))
     if (hideAfter) setHiddenAppts((h) => [...h, appt.id])
+    if (fromPackage && packageId) usePackageSession(packageId)
 
     toast(isFree
       ? 'Ücretsiz işlem tamamlandı — prim yazılmadı'
-      : `Ödeme alındı — prim ${therapist?.name}'e yazıldı (${mock.fmtUSD(commissionUsd)})`)
+      : fromPackage
+        ? `Paketten 1 seans düşüldü — prim ${therapist?.name}'e yazıldı (${mock.fmtUSD(commissionUsd)})`
+        : `Ödeme alındı — prim ${therapist?.name}'e yazıldı (${mock.fmtUSD(commissionUsd)})`)
     return sale
-  }, [toast])
+  }, [toast, usePackageSession])
 
   // --- Spa floor durum değişimi (manuel) ------------------------------------
   const setRoomStatus = useCallback((roomId, status) => {
@@ -166,11 +198,11 @@ export function StoreProvider({ children }) {
   const value = {
     ...mock,
     user, login, logout, canAccess,
-    appointments, visibleAppointments, addAppointment, cancelAppointment, findConflict, closeTicket,
+    appointments, visibleAppointments, addAppointment, cancelAppointment, updateAppointment, findConflict, closeTicket,
     rooms, setRoomStatus,
     inventory, adjustStock, addInventory,
     services, addService,
-    packages, addPackage,
+    packages, addPackage, activePackageFor,
     sales, commissions,
     toast, toasts,
     sidebarOpen, setSidebarOpen,

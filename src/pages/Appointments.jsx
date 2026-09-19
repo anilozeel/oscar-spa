@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../state/store.jsx'
 import { PageHead, Panel, Button, Badge, Modal, Helper } from '../components/ui.jsx'
@@ -26,7 +26,7 @@ const STATUS_TAG = {
 
 export default function Appointments() {
   const store = useStore()
-  const { visibleAppointments, therapists, fmtTRY } = store
+  const { visibleAppointments, therapists, fmtTRY, updateAppointment, toast } = store
   const [open, setOpen] = useState(false)
   const [detail, setDetail] = useState(null)
   const [view, setView] = useState('day')
@@ -38,6 +38,22 @@ export default function Appointments() {
   const dayAppts = offset === 0 ? visibleAppointments : []
 
   const toggle = (id) => setHidden((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+
+  // Sürükle-bırak ile yeniden planlama (terapist sütunu + saat)
+  const onReschedule = (id, colId, slotMin) => {
+    const a = visibleAppointments.find((x) => x.id === id); if (!a) return
+    const dur = toMin(a.end) - toMin(a.time)
+    const newTime = fmtMin(Math.max(DAY_START, Math.min(slotMin, DAY_END - dur)))
+    const patch = { time: newTime, end: addMin(newTime, dur) }
+    if (colId === 'none') {
+      if (!a.freeHammam && !a.undecided) { toast('Bu randevu bir terapist gerektirir', 'warn'); return }
+      patch.therapistId = null; patch.therapist = null
+    } else if (colId !== a.therapistId) {
+      const t = therapists.find((x) => x.id === colId)
+      patch.therapistId = colId; patch.therapist = t?.name
+    }
+    updateAppointment(id, patch)
+  }
 
   return (
     <div className="page">
@@ -73,7 +89,7 @@ export default function Appointments() {
       </div>
 
       {view === 'day' ? (
-        <DayCalendar appts={dayAppts} therapists={therapists.filter((t) => t.active && !hidden.has(t.id))} onPick={setDetail} empty={offset !== 0} />
+        <DayCalendar appts={dayAppts} therapists={therapists.filter((t) => t.active && !hidden.has(t.id))} onPick={setDetail} onReschedule={onReschedule} empty={offset !== 0} />
       ) : (
         <Panel className="section-gap" title={dateLabel}>
           <table className="table">
@@ -97,11 +113,11 @@ export default function Appointments() {
       )}
 
       <div className="section-gap">
-        <Helper><b>Kritik kural:</b> Aynı terapist ve oda aynı saatte ikinci kez rezerve edilemez; sistem çakışmayı engeller.</Helper>
+        <Helper><b>İpucu:</b> Randevuyu başka bir terapiste veya saate <b>sürükleyip bırakın</b>; düzenlemek için üstüne <b>tıklayın</b>. Aynı terapist/oda aynı saatte ikinci kez rezerve edilemez — sistem çakışmayı engeller.</Helper>
       </div>
 
       {open && <NewAppointment store={store} onClose={() => setOpen(false)} />}
-      {detail && <ApptDetail appt={detail} store={store} onClose={() => setDetail(null)} />}
+      {detail && <EditAppt appt={detail} store={store} onClose={() => setDetail(null)} />}
     </div>
   )
 }
@@ -116,16 +132,30 @@ function Tags({ a }) {
   )
 }
 
-// ---- Terapist sütunlu günlük takvim -----------------------------------------
-function DayCalendar({ appts, therapists, onPick, empty }) {
+// ---- Terapist sütunlu günlük takvim (sürükle-bırak) -------------------------
+function DayCalendar({ appts, therapists, onPick, onReschedule, empty }) {
   const cols = [...therapists.map((t) => ({ id: t.id, name: t.name, color: t.color }))]
   const hasNone = appts.some((a) => !a.therapistId)
   if (hasNone) cols.push({ id: 'none', name: 'Terapistsiz / Hamam', color: '#b8935a' })
   const bodyH = DAY_END - DAY_START
 
+  const dragRef = useRef(null)         // { id, offsetY }
+  const justDragged = useRef(false)
+  const [dragging, setDragging] = useState(false)
+
+  const onDrop = (e, colId) => {
+    e.preventDefault()
+    const id = e.dataTransfer.getData('text/plain'); if (!id) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const offY = dragRef.current?.offsetY || 0
+    const y = e.clientY - rect.top - offY
+    const min = DAY_START + Math.round(y / 15) * 15
+    onReschedule(id, colId, min)
+  }
+
   return (
     <div className="tcal-wrap section-gap">
-      <div className="tcal" style={{ minWidth: 120 + cols.length * 180 }}>
+      <div className={`tcal ${dragging ? 'dragging' : ''}`} style={{ minWidth: 120 + cols.length * 180 }}>
         {/* Başlıklar */}
         <div className="tcal-head">
           <div className="tcal-corner" />
@@ -143,13 +173,24 @@ function DayCalendar({ appts, therapists, onPick, empty }) {
           {cols.map((c) => {
             const list = appts.filter((a) => (c.id === 'none' ? !a.therapistId : a.therapistId === c.id))
             return (
-              <div key={c.id} className="tcal-col" style={{ height: bodyH }}>
+              <div key={c.id} className="tcal-col" style={{ height: bodyH }}
+                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+                onDrop={(e) => onDrop(e, c.id)}>
                 {GRID.map((g) => <div key={g.min} className={`tcal-slot ${g.hour ? 'hour' : ''}`} style={{ height: 30 }} />)}
                 {list.map((a) => {
                   const top = (toMin(a.time) - DAY_START) * PXPM
                   const h = Math.max((toMin(a.end) - toMin(a.time)) * PXPM, 26)
                   return (
-                    <button key={a.id} className="tcal-appt" onClick={() => onPick(a)}
+                    <button key={a.id} className="tcal-appt" draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('text/plain', a.id)
+                        e.dataTransfer.effectAllowed = 'move'
+                        const r = e.currentTarget.getBoundingClientRect()
+                        dragRef.current = { id: a.id, offsetY: e.clientY - r.top }
+                        setDragging(true)
+                      }}
+                      onDragEnd={() => { setDragging(false); justDragged.current = true; setTimeout(() => { justDragged.current = false }, 180) }}
+                      onClick={() => { if (justDragged.current) return; onPick(a) }}
                       style={{ top, height: h, background: c.color, opacity: a.status === 'done' ? 0.55 : 1 }}>
                       <div className="ta-time">{a.time} – {a.end}</div>
                       <div className="ta-name">{a.guest} · {a.service}{a.variant === 'package' ? ' (PAKET)' : ''}</div>
@@ -166,27 +207,105 @@ function DayCalendar({ appts, therapists, onPick, empty }) {
   )
 }
 
-// ---- Randevu detay -----------------------------------------------------------
-function ApptDetail({ appt, store, onClose }) {
-  const { fmtTRY } = store
+// ---- Randevu düzenleme -------------------------------------------------------
+const DURATIONS = [30, 40, 45, 50, 60, 75, 80, 90, 120]
+
+function EditAppt({ appt, store, onClose }) {
+  const { therapists, rooms, guests, fmtTRY, updateAppointment, cancelAppointment } = store
   const nav = useNavigate()
+  const [time, setTime] = useState(appt.time)
+  const [dur, setDur] = useState(toMin(appt.end) - toMin(appt.time))
+  const [therapistId, setTherapistId] = useState(appt.therapistId || '')
+  const [roomId, setRoomId] = useState(appt.roomId || '')
+  const [guestId, setGuestId] = useState(appt.guestId || guests[0].id)
+  const [price, setPrice] = useState(appt.price || 0)
+  const [status, setStatus] = useState(appt.status)
+
+  const end = addMin(time, Number(dur))
+  const durOptions = DURATIONS.includes(dur) ? DURATIONS : [dur, ...DURATIONS]
+
+  const save = () => {
+    const t = therapists.find((x) => x.id === therapistId)
+    const r = rooms.find((x) => x.id === roomId)
+    const g = guests.find((x) => x.id === guestId)
+    const ok = updateAppointment(appt.id, {
+      time, end,
+      therapistId: therapistId || null, therapist: t?.name || null,
+      roomId: roomId || null, room: r?.name || appt.room,
+      guestId, guest: g?.name || appt.guest,
+      price: Number(price), status,
+    })
+    if (ok) onClose()
+  }
+  const remove = () => { cancelAppointment(appt.id); onClose() }
+
   return (
-    <Modal title={appt.service} sub={`${appt.time} – ${appt.end}`} onClose={onClose}
+    <Modal title="Randevuyu Düzenle" sub={`${appt.service}`} onClose={onClose}
       footer={<>
+        <Button variant="ghost" onClick={remove} style={{ marginRight: 'auto', color: 'var(--danger)' }}>İptal Et</Button>
         <Button variant="ghost" onClick={onClose}>Kapat</Button>
-        {appt.status !== 'done' && <Button icon="pos" onClick={() => { onClose(); nav('/satis') }}>Adisyona Git</Button>}
+        <Button icon="check" onClick={save}>Kaydet</Button>
       </>}>
-      <div className="center gap-sm wrap" style={{ marginBottom: 14 }}>
-        <Badge kind={STATUS_TAG[appt.status].kind}>{STATUS_TAG[appt.status].label}</Badge>
-        <Tags a={appt} />
+      <div className="center gap-sm wrap" style={{ marginBottom: 14 }}><Tags a={appt} /></div>
+
+      <div className="grid g-2" style={{ gap: 14 }}>
+        <div className="field">
+          <label>Başlangıç saati</label>
+          <select className="select" value={time} onChange={(e) => setTime(e.target.value)}>
+            {SLOTS.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div className="field">
+          <label>Süre (dk) · bitiş {end}</label>
+          <select className="select" value={dur} onChange={(e) => setDur(Number(e.target.value))}>
+            {durOptions.map((d) => <option key={d} value={d}>{d} dk</option>)}
+          </select>
+        </div>
       </div>
-      <div className="card" style={{ background: 'var(--surface-2)' }}>
-        <div className="kv"><span className="k">Misafir</span><span className="v">{appt.guest}</span></div>
-        <div className="kv"><span className="k">Terapist</span><span className="v">{appt.therapist || 'Terapistsiz'}</span></div>
-        <div className="kv"><span className="k">Oda</span><span className="v">{appt.room}</span></div>
-        <div className="kv"><span className="k">Süre</span><span className="v">{appt.time} – {appt.end}</span></div>
-        <div className="kv"><span className="k">Tutar</span><span className="v money">{appt.undecided ? 'Girişte belirlenecek' : (appt.price ? fmtTRY(appt.price) : '₺0')}</span></div>
+
+      <div className="grid g-2" style={{ gap: 14, marginTop: 14 }}>
+        <div className="field">
+          <label>Terapist</label>
+          <select className="select" value={therapistId} onChange={(e) => setTherapistId(e.target.value)}>
+            <option value="">Terapistsiz</option>
+            {therapists.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+        <div className="field">
+          <label>Oda</label>
+          <select className="select" value={roomId} onChange={(e) => setRoomId(e.target.value)}>
+            {rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </select>
+        </div>
       </div>
+
+      <div className="grid g-2" style={{ gap: 14, marginTop: 14 }}>
+        <div className="field">
+          <label>Misafir</label>
+          <select className="select" value={guestId} onChange={(e) => setGuestId(e.target.value)}>
+            {guests.map((g) => <option key={g.id} value={g.id}>{g.name} · Oda {g.roomNo}</option>)}
+          </select>
+        </div>
+        <div className="field">
+          <label>Fiyat (₺)</label>
+          <input className="input" type="number" min="0" step="50" value={price} onChange={(e) => setPrice(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="field" style={{ marginTop: 14 }}>
+        <label>Durum</label>
+        <select className="select" value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="booked">Planlandı</option>
+          <option value="inservice">İşlemde</option>
+          <option value="done">Tamamlandı</option>
+        </select>
+      </div>
+
+      {appt.status !== 'done' && (
+        <Button block variant="ghost" icon="pos" style={{ marginTop: 16 }} onClick={() => { onClose(); nav('/satis') }}>
+          Adisyona / Ödemeye Git
+        </Button>
+      )}
     </Modal>
   )
 }

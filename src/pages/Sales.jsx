@@ -5,8 +5,9 @@ import Icon from '../components/icons.jsx'
 
 const PAY = [
   { id: 'cash', label: 'Nakit', icon: 'cash', variant: 'sage' },
-  { id: 'card', label: 'Kart', icon: 'card', variant: 'sage' },
+  { id: 'card', label: 'Kredi Kartı', icon: 'card', variant: 'sage' },
   { id: 'folio', label: 'Odaya Yaz', icon: 'room', variant: 'gold' },
+  { id: 'package', label: 'Paketten Düş', icon: 'package', variant: 'sage' },
 ]
 
 export default function Sales() {
@@ -71,10 +72,11 @@ export default function Sales() {
 }
 
 function Adisyon({ appt, store, onClose }) {
-  const { therapists, services, fmtTRY, fmtUSD, commissionFor, closeTicket } = store
+  const { therapists, services, fmtTRY, fmtUSD, commissionFor, closeTicket, activePackageFor } = store
   const service = services.find((s) => s.id === appt.serviceId)
   const isFree = !!appt.freeHammam
   const isUndecided = !!appt.undecided
+  const activePkg = activePackageFor(appt.guestId)
 
   const [therapistId, setTherapistId] = useState(appt.therapistId || therapists[0].id)
   const [pay, setPay] = useState(null)
@@ -102,11 +104,12 @@ function Adisyon({ appt, store, onClose }) {
   const therapist = therapists.find((t) => t.id === therapistId)
   const changed = !isFree && appt.therapistId && appt.therapistId !== therapistId
 
-  const canFinish = !!pay && (!isUndecided || !!chosen)
+  const canFinish = !!pay && (!isUndecided || !!chosen) && (pay !== 'package' || !!activePkg)
 
   const finish = () => {
     closeTicket(appt, {
       therapistId, payType: pay, hideAfter,
+      packageId: pay === 'package' ? activePkg?.id : undefined,
       override: isUndecided ? { serviceName, price: amount, commissionType: effType } : undefined,
     })
     onClose()
@@ -184,19 +187,27 @@ function Adisyon({ appt, store, onClose }) {
         <div className="center gap-sm wrap" style={{ marginTop: 8 }}>
           {PAY.map((p) => {
             const I = Icon[p.icon]
+            const disabled = p.id === 'package' && !activePkg
             return (
-              <button key={p.id} className={`btn ${pay === p.id ? (p.variant === 'gold' ? 'btn-gold' : 'btn-primary') : 'btn-ghost'}`} onClick={() => setPay(p.id)}>
+              <button key={p.id} disabled={disabled}
+                className={`btn ${pay === p.id ? (p.variant === 'gold' ? 'btn-gold' : 'btn-primary') : 'btn-ghost'}`}
+                onClick={() => setPay(p.id)}>
                 <I /> {p.label}
               </button>
             )
           })}
         </div>
+        {activePkg
+          ? <p className="muted small" style={{ marginTop: 8 }}>Paket: <b>{activePkg.name}</b> · kalan {activePkg.total - activePkg.used} seans{pay === 'package' ? ' — bu işlemde 1 seans düşülecek' : ''}</p>
+          : <p className="small" style={{ marginTop: 8, color: 'var(--gold-deep)' }}>Bu misafirin aktif paketi bulunmuyor.</p>}
       </div>
 
       {/* Toplam */}
       <div className="between" style={{ marginTop: 22, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
         <span className="muted">Toplam</span>
-        <span className="display" style={{ fontSize: 26, fontWeight: 700, color: 'var(--forest)' }}>{isUndecided && !chosen ? '—' : fmtTRY(amount)}</span>
+        <span className="display" style={{ fontSize: 26, fontWeight: 700, color: 'var(--forest)' }}>
+          {pay === 'package' ? '₺0 · Paketten' : (isUndecided && !chosen ? '—' : fmtTRY(amount))}
+        </span>
       </div>
 
       <div style={{ marginTop: 14 }}>
