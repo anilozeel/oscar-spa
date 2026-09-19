@@ -1,0 +1,154 @@
+import { useState } from 'react'
+import { useStore } from '../state/store.jsx'
+import { PageHead, Panel, Badge, Button, Modal, Helper, Chip, Stat } from '../components/ui.jsx'
+import Icon from '../components/icons.jsx'
+
+const PAY = [
+  { id: 'cash', label: 'Nakit', icon: 'cash', variant: 'sage' },
+  { id: 'card', label: 'Kart', icon: 'card', variant: 'sage' },
+  { id: 'folio', label: 'Odaya Yaz', icon: 'room', variant: 'gold' },
+]
+
+export default function Sales() {
+  const store = useStore()
+  const { visibleAppointments, sales, fmtTRY, fmtUSD } = store
+  const [ticket, setTicket] = useState(null)
+  const openAppts = visibleAppointments.filter((a) => a.status !== 'done')
+  const todayRevenue = sales.reduce((s, x) => s + x.amount, 0)
+  const todayCommission = sales.reduce((s, x) => s + x.commissionUsd, 0)
+
+  return (
+    <div className="page">
+      <PageHead title="Satış & POS" sub="Ödeme alınmadan önce işlem, terapist ve prim bilgisi net şekilde kontrol edilmeli." />
+
+      <div className="grid g-3">
+        <Stat label="Bugün kapatılan adisyon" value={sales.length} icon="pos" />
+        <Stat label="Tahsil edilen (oturum)" value={fmtTRY(todayRevenue)} icon="finance" />
+        <Stat label="Yazılan prim (oturum)" value={fmtUSD(todayCommission)} icon="therapist" />
+      </div>
+
+      <div className="grid section-gap" style={{ gridTemplateColumns: '1fr 1fr', alignItems: 'start' }}>
+        {/* Açık adisyonlar */}
+        <Panel title="Açık Adisyonlar" action={<Chip>{openAppts.length}</Chip>}>
+          {openAppts.length ? openAppts.map((a) => (
+            <div key={a.id} className="list-row">
+              <div className="chip ghost" style={{ minWidth: 62, justifyContent: 'center' }}>{a.time}</div>
+              <div className="grow">
+                <div style={{ fontWeight: 600, color: 'var(--forest-ink)' }}>
+                  {a.service} {a.freeHammam && <Badge kind="free">ÜCRETSİZ</Badge>}
+                </div>
+                <div className="muted small">{a.guest} · {a.room} · {a.therapist || 'Terapistsiz'}</div>
+              </div>
+              <div className="money">{a.price ? fmtTRY(a.price) : '₺0'}</div>
+              <Button sm variant="ghost" onClick={() => setTicket(a)}>Adisyon Aç</Button>
+            </div>
+          )) : <p className="muted small">Tüm adisyonlar kapatıldı.</p>}
+        </Panel>
+
+        {/* Arşiv */}
+        <Panel title="Kapatılan Adisyonlar (arşiv)" action={<Chip kind="gold">{sales.length}</Chip>}>
+          {sales.length ? sales.map((s) => (
+            <div key={s.id} className="list-row">
+              <div className="grow">
+                <div style={{ fontWeight: 600, color: 'var(--forest-ink)' }}>#{s.no} · {s.service}</div>
+                <div className="muted small">{s.guest} · {s.therapist} · Prim {fmtUSD(s.commissionUsd)}</div>
+              </div>
+              <Badge kind={s.payType === 'folio' ? 'free' : 'sage'}>{PAY.find((p) => p.id === s.payType)?.label}</Badge>
+              <div className="money">{fmtTRY(s.amount)}</div>
+            </div>
+          )) : (
+            <div className="empty"><Icon.pos /><div>Henüz adisyon kapatılmadı.<br />Soldan bir adisyon açıp ödemeyi tamamlayın.</div></div>
+          )}
+        </Panel>
+      </div>
+
+      {ticket && <Adisyon appt={ticket} store={store} onClose={() => setTicket(null)} />}
+    </div>
+  )
+}
+
+function Adisyon({ appt, store, onClose }) {
+  const { therapists, services, fmtTRY, fmtUSD, commissionFor, closeTicket } = store
+  const service = services.find((s) => s.id === appt.serviceId)
+  const isFree = appt.freeHammam || service?.commissionType === 'none'
+  const [therapistId, setTherapistId] = useState(appt.therapistId || therapists[0].id)
+  const [pay, setPay] = useState(null)
+  const [hideAfter, setHideAfter] = useState(false)
+
+  const commissionUsd = isFree ? 0 : commissionFor(service?.commissionType)
+  const therapist = therapists.find((t) => t.id === therapistId)
+  const changed = !isFree && appt.therapistId && appt.therapistId !== therapistId
+
+  const finish = () => {
+    closeTicket(appt, { therapistId, payType: pay, hideAfter })
+    onClose()
+  }
+
+  return (
+    <Modal title={`Adisyon #${appt.id.toUpperCase().slice(0, 6)}`} sub={`Misafir: ${appt.guest} · ${appt.room}`} onClose={onClose} wide
+      footer={<>
+        <label className="center gap-sm small muted" style={{ marginRight: 'auto', cursor: 'pointer' }}>
+          <input type="checkbox" checked={hideAfter} onChange={(e) => setHideAfter(e.target.checked)} />
+          Ödemeden sonra takvimden gizle
+        </label>
+        <Button variant="ghost" onClick={onClose}>Vazgeç</Button>
+        <Button icon="check" disabled={!pay} onClick={finish}>Ödemeyi Tamamla</Button>
+      </>}>
+
+      {/* Adisyon tablosu */}
+      <table className="table dark-head" style={{ background: 'var(--surface)', borderRadius: 'var(--r-md)', overflow: 'hidden' }}>
+        <thead><tr><th>İşlem</th><th>Terapist</th><th className="num">Tutar</th><th className="num">Prim</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style={{ fontWeight: 600 }}>{appt.service} {isFree && <Badge kind="free">ÜCRETSİZ</Badge>}</td>
+            <td>{isFree ? '—' : therapist?.name}</td>
+            <td className="num money">{fmtTRY(appt.price)}</td>
+            <td className="num money" style={{ color: commissionUsd ? 'var(--gold-deep)' : 'var(--muted)' }}>{commissionUsd ? fmtUSD(commissionUsd) : '—'}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Terapist seçimi — prim ödeme anındaki terapiste yazılır */}
+      {!isFree && (
+        <div style={{ marginTop: 18 }}>
+          <label className="small" style={{ fontWeight: 600, color: 'var(--ink-2)' }}>Primi alacak terapist (ödeme anında)</label>
+          <div className="pick-grid" style={{ marginTop: 8 }}>
+            {therapists.map((t) => (
+              <button key={t.id} className={`pick ${therapistId === t.id ? 'on' : ''}`} onClick={() => setTherapistId(t.id)}>
+                <div className="p-t">{t.name}</div>
+                <div className="p-s">{t.id === appt.therapistId ? 'Randevudaki terapist' : 'Son dakika değişimi'}</div>
+              </button>
+            ))}
+          </div>
+          {changed && <div style={{ marginTop: 12 }}><Helper>Son dakika terapist değişti: prim <b>{therapist?.name}</b>’e yazılacak, randevudaki isme değil.</Helper></div>}
+        </div>
+      )}
+      {isFree && <div style={{ marginTop: 16 }}><Helper>Ücretsiz hamam kullanımı: terapist ve prim yok, tutar ₺0. Kayıt yine de arşivde kalır.</Helper></div>}
+
+      {/* Ödeme tipi */}
+      <div style={{ marginTop: 20 }}>
+        <label className="small" style={{ fontWeight: 600, color: 'var(--ink-2)' }}>Ödeme Tipi</label>
+        <div className="center gap-sm wrap" style={{ marginTop: 8 }}>
+          {PAY.map((p) => {
+            const I = Icon[p.icon]
+            return (
+              <button key={p.id} className={`btn ${pay === p.id ? (p.variant === 'gold' ? 'btn-gold' : 'btn-primary') : 'btn-ghost'}`} onClick={() => setPay(p.id)}>
+                <I /> {p.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Toplam */}
+      <div className="between" style={{ marginTop: 22, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
+        <span className="muted">Toplam</span>
+        <span className="display" style={{ fontSize: 26, fontWeight: 700, color: 'var(--forest)' }}>{fmtTRY(appt.price)}</span>
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        <Helper><b>Önemli:</b> Takvimden silinse bile finans, adisyon ve prim kayıtları silinmez — arşivde kalır.</Helper>
+      </div>
+    </Modal>
+  )
+}

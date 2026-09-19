@@ -1,0 +1,55 @@
+// OscarSpa — line icon set (stroke-based, spa/premium feel)
+const S = ({ children, ...p }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+       strokeLinecap="round" strokeLinejoin="round" {...p}>{children}</svg>
+)
+
+export const Icon = {
+  dashboard: (p) => <S {...p}><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></S>,
+  calendar: (p) => <S {...p}><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9h18M8 3v3M16 3v3"/></S>,
+  floor: (p) => <S {...p}><path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-6h6v6"/><path d="M4 12h16"/></S>,
+  guests: (p) => <S {...p}><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.5a3 3 0 0 1 0 6M20.5 20a5 5 0 0 0-4-4.9"/></S>,
+  therapist: (p) => <S {...p}><path d="M12 3c2.5 0 3 2 3 4 0 3-1.5 5-3 5s-3-2-3-5c0-2 .5-4 3-4Z"/><path d="M5 21c0-3.5 3-6 7-6s7 2.5 7 6"/></S>,
+  package: (p) => <S {...p}><path d="M12 3 3.5 7.5v9L12 21l8.5-4.5v-9L12 3Z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"/></S>,
+  pos: (p) => <S {...p}><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M2.5 10h19M6 14.5h4"/></S>,
+  stock: (p) => <S {...p}><path d="M3.5 8 12 3l8.5 5v8L12 21l-8.5-5V8Z"/><path d="M3.5 8 12 13l8.5-5M8 5.5 16.5 10.5"/></S>,
+  finance: (p) => <S {...p}><ellipse cx="12" cy="6" rx="7.5" ry="3"/><path d="M4.5 6v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V6"/><path d="M4.5 12v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"/></S>,
+  report: (p) => <S {...p}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></S>,
+  online: (p) => <S {...p}><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9S14.5 18.5 12 21C9.5 18.5 8.2 15.3 8.2 12S9.5 5.5 12 3Z"/></S>,
+  pms: (p) => <S {...p}><path d="M3 19v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6"/><path d="M6 11V8a2 2 0 0 1 2-2h3v5M2 19h20"/></S>,
+  whatsapp: (p) => <S {...p}><path d="M4 20l1.4-4A8 8 0 1 1 8 18.6L4 20Z"/><path d="M9 10c0 3 2 5 5 5M9 10c0-.8.4-1 1-1M14 15c.8 0 1-.4 1-1"/></S>,
+  ai: (p) => <S {...p}><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/><circle cx="12" cy="12" r="3"/></S>,
+  shield: (p) => <S {...p}><path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6l-7-3Z"/><path d="M9 12l2 2 4-4"/></S>,
+  settings: (p) => <S {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 0 1-4 0v-.2A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H1a2 2 0 0 1 0-4h.2A1.6 1.6 0 0 0 2.6 7a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H7a1.6 1.6 0 0 0 1-1.5V1a2 2 0 0 1 4 0v.2A1.6 1.6 0 0 0 17 2.6a1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V7a1.6 1.6 0 0 0 1.5 1H23a2 2 0 0 1 0 4h-.2a1.6 1.6 0 0 0-1.4 1Z" transform="scale(0.86) translate(2 2)"/></S>,
+  bell: (p) => <S {...p}><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></S>,
+  search: (p) => <S {...p}><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></S>,
+  pin: (p) => <S {...p}><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></S>,
+  chevron: (p) => <S {...p}><path d="m6 9 6 6 6-6"/></S>,
+  chevronR: (p) => <S {...p}><path d="m9 6 6 6-6 6"/></S>,
+  arrowUp: (p) => <S {...p}><path d="M12 19V5M6 11l6-6 6 6"/></S>,
+  plus: (p) => <S {...p}><path d="M12 5v14M5 12h14"/></S>,
+  x: (p) => <S {...p}><path d="M18 6 6 18M6 6l12 12"/></S>,
+  check: (p) => <S {...p}><path d="M20 6 9 17l-5-5"/></S>,
+  logout: (p) => <S {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></S>,
+  clock: (p) => <S {...p}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></S>,
+  bolt: (p) => <S {...p}><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></S>,
+  heart: (p) => <S {...p}><path d="M12 20s-7-4.5-9.3-9C1.2 8 2.5 4.5 6 4.5c2 0 3.2 1.2 4 2.5.8-1.3 2-2.5 4-2.5 3.5 0 4.8 3.5 3.3 6.5C19 15.5 12 20 12 20Z"/></S>,
+  spark: (p) => <S {...p}><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/></S>,
+  info: (p) => <S {...p}><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></S>,
+  edit: (p) => <S {...p}><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"/></S>,
+  trash: (p) => <S {...p}><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></S>,
+  card: (p) => <S {...p}><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 9.5h19"/></S>,
+  cash: (p) => <S {...p}><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9v6M18 9v6"/></S>,
+  room: (p) => <S {...p}><path d="M3 21V6l7-3v18M10 21h11V10l-6-4"/><path d="M14 12h.01M14 16h.01M6 12h.01"/></S>,
+  leaf: (p) => <S {...p}><path d="M11 20c-4 0-7-3-7-7 0-5 5-9 16-9 0 8-4 14-9 16Z"/><path d="M11 20c0-6 3-10 8-12"/></S>,
+  scissors: (p) => <S {...p}><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 8l12 8M8 16 20 8"/></S>,
+  drop: (p) => <S {...p}><path d="M12 3s6 6 6 10a6 6 0 0 1-12 0c0-4 6-10 6-10Z"/></S>,
+  phone: (p) => <S {...p}><path d="M4 5c0 8 7 15 15 15l2-3-4-2-2 2c-2-1-5-4-6-6l2-2-2-4-3 2Z"/></S>,
+  user: (p) => <S {...p}><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></S>,
+  users: (p) => <S {...p}><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.5a3 3 0 0 1 0 6M20.5 20a5 5 0 0 0-4-4.9"/></S>,
+  star: (p) => <S {...p}><path d="M12 3l2.6 5.7 6.4.6-4.8 4.2 1.4 6.1L12 16.9 6.4 19.6l1.4-6.1L3 9.3l6.4-.6L12 3Z"/></S>,
+  filter: (p) => <S {...p}><path d="M3 5h18l-7 8v5l-4 2v-7L3 5Z"/></S>,
+  tag: (p) => <S {...p}><path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9-9-9Z"/><circle cx="8" cy="8" r="1.5"/></S>,
+}
+
+export default Icon
