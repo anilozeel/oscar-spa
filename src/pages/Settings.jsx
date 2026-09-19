@@ -22,7 +22,7 @@ function Toggle({ on, onChange }) {
 }
 
 export default function Settings() {
-  const { ROLES, HOTEL } = useStore()
+  const { ROLES } = useStore()
   const [integrations, setIntegrations] = useState({ pms: true, whatsapp: true, online: false, ai: false })
 
   const INTS = [
@@ -53,8 +53,8 @@ export default function Settings() {
         <div className="grid" style={{ gap: 18 }}>
           <Panel title="Genel">
             <div className="field" style={{ marginBottom: 14 }}>
-              <label>İşletme</label>
-              <input className="input" defaultValue={HOTEL} />
+              <label>İşletme adı</label>
+              <input className="input" placeholder="Örn. Oscar Seaside Hotel & Spa" />
             </div>
             <div className="grid g-2" style={{ gap: 12 }}>
               <div className="field">

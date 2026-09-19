@@ -91,16 +91,22 @@ export function StoreProvider({ children }) {
   }, [toast])
 
   // --- Adisyon kapatma (Sayfa 08/09): prim ödeme anındaki terapiste yazılır --
-  const closeTicket = useCallback((appt, { therapistId, payType, hideAfter }) => {
+  // override: girişte karar verilen randevularda seçilen gerçek hizmet
+  //           { serviceName, price, commissionType }
+  const closeTicket = useCallback((appt, { therapistId, payType, hideAfter, override }) => {
     const service = mock.services.find((s) => s.id === appt.serviceId)
-    const isFree = appt.freeHammam || service?.commissionType === 'none'
+    // etkin prim tipi: adisyonda seçilen > randevuda kayıtlı > hizmet tanımı
+    const effType = override?.commissionType ?? appt.commissionType ?? service?.commissionType
+    const isFree = appt.freeHammam || effType === 'none'
+    const amount = override?.price ?? appt.price
+    const serviceName = override?.serviceName ?? appt.service
     const therapist = mock.therapists.find((t) => t.id === therapistId)
-    const commissionUsd = isFree ? 0 : mock.commissionFor(service?.commissionType)
+    const commissionUsd = isFree ? 0 : mock.commissionFor(effType)
 
     const sale = {
       id: uid(), no: 'SP-' + Math.floor(1000 + Math.random() * 9000),
       apptId: appt.id, guest: appt.guest, roomNo: '',
-      service: appt.service, amount: appt.price,
+      service: serviceName, amount,
       therapist: isFree ? '—' : (therapist?.name || appt.therapist || '—'),
       therapistId: isFree ? null : therapistId,
       payType, commissionUsd, date: 'Bugün', archived: true,
@@ -108,18 +114,19 @@ export function StoreProvider({ children }) {
     setSales((s) => [sale, ...s])
     if (!isFree && commissionUsd > 0) {
       setCommissions((c) => [
-        { id: uid(), saleId: sale.id, therapistId, therapist: therapist?.name, type: service?.commissionType, usd: commissionUsd, paid: false, date: 'Bugün' },
+        { id: uid(), saleId: sale.id, therapistId, therapist: therapist?.name, type: effType, usd: commissionUsd, paid: false, date: 'Bugün' },
         ...c,
       ])
     }
     // randevu tamamlandı; istenirse takvimden gizlenir (arşivde kalır)
     setAppointments((l) => l.map((a) => a.id === appt.id
-      ? { ...a, status: 'done', pay: payType, therapistId: isFree ? null : therapistId, therapist: isFree ? null : (therapist?.name || a.therapist) }
+      ? { ...a, status: 'done', pay: payType, service: serviceName, price: amount,
+          therapistId: isFree ? null : therapistId, therapist: isFree ? null : (therapist?.name || a.therapist) }
       : a))
     if (hideAfter) setHiddenAppts((h) => [...h, appt.id])
 
     toast(isFree
-      ? 'Ücretsiz hamam tamamlandı — prim yazılmadı'
+      ? 'Ücretsiz işlem tamamlandı — prim yazılmadı'
       : `Ödeme alındı — prim ${therapist?.name}'e yazıldı (${mock.fmtUSD(commissionUsd)})`)
     return sale
   }, [toast])

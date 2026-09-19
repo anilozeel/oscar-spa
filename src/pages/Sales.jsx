@@ -35,11 +35,14 @@ export default function Sales() {
               <div className="chip ghost" style={{ minWidth: 62, justifyContent: 'center' }}>{a.time}</div>
               <div className="grow">
                 <div style={{ fontWeight: 600, color: 'var(--forest-ink)' }}>
-                  {a.service} {a.freeHammam && <Badge kind="free">ÜCRETSİZ</Badge>}
+                  {a.service}{' '}
+                  {a.variant === 'package' && <Badge kind="sage">PAKET</Badge>}
+                  {a.freeHammam && <Badge kind="free">ÜCRETSİZ</Badge>}
+                  {a.undecided && <Badge kind="free">KARAR BEKLİYOR</Badge>}
                 </div>
                 <div className="muted small">{a.guest} · {a.room} · {a.therapist || 'Terapistsiz'}</div>
               </div>
-              <div className="money">{a.price ? fmtTRY(a.price) : '₺0'}</div>
+              <div className="money">{a.price ? fmtTRY(a.price) : (a.undecided ? '—' : '₺0')}</div>
               <Button sm variant="ghost" onClick={() => setTicket(a)}>Adisyon Aç</Button>
             </div>
           )) : <p className="muted small">Tüm adisyonlar kapatıldı.</p>}
@@ -70,17 +73,42 @@ export default function Sales() {
 function Adisyon({ appt, store, onClose }) {
   const { therapists, services, fmtTRY, fmtUSD, commissionFor, closeTicket } = store
   const service = services.find((s) => s.id === appt.serviceId)
-  const isFree = appt.freeHammam || service?.commissionType === 'none'
+  const isFree = !!appt.freeHammam
+  const isUndecided = !!appt.undecided
+
   const [therapistId, setTherapistId] = useState(appt.therapistId || therapists[0].id)
   const [pay, setPay] = useState(null)
   const [hideAfter, setHideAfter] = useState(false)
+  // Girişte karar verilen randevu için hizmet seçimi
+  const sellable = services.filter((s) => !s.free && !s.undecided)
+  const [pickId, setPickId] = useState('')
+  const [variant, setVariant] = useState('solo')
 
-  const commissionUsd = isFree ? 0 : commissionFor(service?.commissionType)
+  const chosen = services.find((s) => s.id === pickId)
+  const chosenIsPackage = chosen?.hasPackage && variant === 'package'
+
+  // Etkin değerler
+  let amount, effType, serviceName
+  if (isUndecided) {
+    amount = chosen ? (chosen.hasPackage ? (chosenIsPackage ? chosen.pkgPrice : chosen.price) : chosen.price) : 0
+    effType = chosen ? (chosen.hasPackage ? (chosenIsPackage ? 'package' : 'massage') : chosen.commissionType) : 'none'
+    serviceName = chosen ? (chosen.name + (chosenIsPackage ? ' · Paket' : '')) : 'Girişte Belirlenecek'
+  } else {
+    amount = appt.price
+    effType = appt.commissionType ?? service?.commissionType ?? 'massage'
+    serviceName = appt.service + (appt.variant === 'package' ? ' · Paket' : '')
+  }
+  const commissionUsd = isFree || effType === 'none' ? 0 : commissionFor(effType)
   const therapist = therapists.find((t) => t.id === therapistId)
   const changed = !isFree && appt.therapistId && appt.therapistId !== therapistId
 
+  const canFinish = !!pay && (!isUndecided || !!chosen)
+
   const finish = () => {
-    closeTicket(appt, { therapistId, payType: pay, hideAfter })
+    closeTicket(appt, {
+      therapistId, payType: pay, hideAfter,
+      override: isUndecided ? { serviceName, price: amount, commissionType: effType } : undefined,
+    })
     onClose()
   }
 
@@ -92,17 +120,42 @@ function Adisyon({ appt, store, onClose }) {
           Ödemeden sonra takvimden gizle
         </label>
         <Button variant="ghost" onClick={onClose}>Vazgeç</Button>
-        <Button icon="check" disabled={!pay} onClick={finish}>Ödemeyi Tamamla</Button>
+        <Button icon="check" disabled={!canFinish} onClick={finish}>Ödemeyi Tamamla</Button>
       </>}>
+
+      {/* Girişte karar verilen randevu: gerçek hizmeti şimdi seç */}
+      {isUndecided && (
+        <div style={{ marginBottom: 18 }}>
+          <Helper>Karar bekleyen randevu — misafir geldi. Uygulanan gerçek hizmeti seçin; fiyat ve prim buna göre hesaplanır.</Helper>
+          <div className="grid g-2" style={{ gap: 12, marginTop: 12 }}>
+            <div className="field">
+              <label>Uygulanan hizmet</label>
+              <select className="select" value={pickId} onChange={(e) => { setPickId(e.target.value); setVariant('solo') }}>
+                <option value="">Seçiniz…</option>
+                {sellable.map((s) => <option key={s.id} value={s.id}>{s.name} — {fmtTRY(s.price)}</option>)}
+              </select>
+            </div>
+            {chosen?.hasPackage && (
+              <div className="field">
+                <label>Satış türü</label>
+                <div className="seg" style={{ width: '100%' }}>
+                  <button className={variant === 'solo' ? 'on' : ''} style={{ flex: 1 }} onClick={() => setVariant('solo')}>Sadece · {fmtTRY(chosen.price)}</button>
+                  <button className={variant === 'package' ? 'on' : ''} style={{ flex: 1 }} onClick={() => setVariant('package')}>Paket · {fmtTRY(chosen.pkgPrice)}</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Adisyon tablosu */}
       <table className="table dark-head" style={{ background: 'var(--surface)', borderRadius: 'var(--r-md)', overflow: 'hidden' }}>
         <thead><tr><th>İşlem</th><th>Terapist</th><th className="num">Tutar</th><th className="num">Prim</th></tr></thead>
         <tbody>
           <tr>
-            <td style={{ fontWeight: 600 }}>{appt.service} {isFree && <Badge kind="free">ÜCRETSİZ</Badge>}</td>
+            <td style={{ fontWeight: 600 }}>{serviceName} {isFree && <Badge kind="free">ÜCRETSİZ</Badge>}</td>
             <td>{isFree ? '—' : therapist?.name}</td>
-            <td className="num money">{fmtTRY(appt.price)}</td>
+            <td className="num money">{isUndecided && !chosen ? '—' : fmtTRY(amount)}</td>
             <td className="num money" style={{ color: commissionUsd ? 'var(--gold-deep)' : 'var(--muted)' }}>{commissionUsd ? fmtUSD(commissionUsd) : '—'}</td>
           </tr>
         </tbody>
@@ -143,7 +196,7 @@ function Adisyon({ appt, store, onClose }) {
       {/* Toplam */}
       <div className="between" style={{ marginTop: 22, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
         <span className="muted">Toplam</span>
-        <span className="display" style={{ fontSize: 26, fontWeight: 700, color: 'var(--forest)' }}>{fmtTRY(appt.price)}</span>
+        <span className="display" style={{ fontSize: 26, fontWeight: 700, color: 'var(--forest)' }}>{isUndecided && !chosen ? '—' : fmtTRY(amount)}</span>
       </div>
 
       <div style={{ marginTop: 14 }}>

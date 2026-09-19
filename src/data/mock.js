@@ -4,7 +4,7 @@
 //             Package, InventoryItem, Commission
 // =============================================================================
 
-export const HOTEL = 'Ocean Resort Hotel'
+export const HOTEL = '' // işletme adı Ayarlar'dan girilir
 export const USD_TRY = 34.0 // prim USD tutarlarını ekranlarda referans için
 
 // ---- Roller & yetkiler (Sayfa 04) --------------------------------------------
@@ -42,19 +42,37 @@ export const COMMISSION_RULES = [
 export const commissionFor = (type) =>
   (COMMISSION_RULES.find((r) => r.id === type)?.usd) ?? 1.0
 
-// ---- Hizmetler (Sayfa 14) ----------------------------------------------------
+// ---- Hizmetler — Oscar Seaside Spa & Wellness Menü (gerçek fiyat listesi) -----
 // commissionType: massage | scrub | package | none (ücretsiz hamam)
+// hasPackage: true olan masajlar iki türde satılabilir:
+//   • Sadece Masaj (50 dk)            -> price     , prim: massage
+//   • Paket (50 dk masaj + 30 dk kese & köpük · sauna, hamam, maske & içecek dahil)
+//                                     -> pkgPrice  , prim: package
+export const PACKAGE_DURATION = 80
+export const PACKAGE_INFO = '50 dk masaj + 30 dk kese & köpük · sauna, hamam, maske & içecek dahil'
+export const SOLO_INFO = '50 dakika masaj'
+
 export const services = [
-  { id: 's1', name: 'Klasik Masaj',        cat: 'Masaj',      duration: 50, price: 1800, roomTypes: ['room'],           commissionType: 'massage', icon: 'therapist' },
-  { id: 's2', name: 'Deep Tissue Masaj',   cat: 'Masaj',      duration: 60, price: 2500, roomTypes: ['room'],           commissionType: 'massage', icon: 'therapist' },
-  { id: 's3', name: 'Bali Masajı',         cat: 'Masaj',      duration: 60, price: 2300, roomTypes: ['room'],           commissionType: 'massage', icon: 'therapist' },
-  { id: 's4', name: 'Aromatherapy',        cat: 'Masaj',      duration: 75, price: 2800, roomTypes: ['room','vip'],     commissionType: 'massage', icon: 'drop' },
-  { id: 's5', name: 'Couple Massage',      cat: 'Masaj',      duration: 90, price: 4600, roomTypes: ['vip','room'],     commissionType: 'massage', icon: 'heart' },
-  { id: 's6', name: 'Kese & Köpük',        cat: 'Hamam',      duration: 40, price: 1200, roomTypes: ['hammam'],         commissionType: 'scrub',   icon: 'drop' },
-  { id: 's7', name: 'Turkish Bath',        cat: 'Hamam',      duration: 60, price: 1600, roomTypes: ['hammam'],         commissionType: 'scrub',   icon: 'drop' },
-  { id: 's8', name: 'Cilt Bakımı',         cat: 'Bakım',      duration: 45, price: 2100, roomTypes: ['cabin'],          commissionType: 'massage', icon: 'spark' },
-  { id: 's9', name: 'Ücretsiz Hamam Kullanımı', cat: 'Hamam', duration: 60, price: 0,   roomTypes: ['hammam'],         commissionType: 'none',    free: true, icon: 'drop' },
+  { id: 'm_klasik',  name: 'Klasik Masaj',      cat: 'Masaj', duration: 50, price: 1800, pkgPrice: 2200, hasPackage: true, roomTypes: ['room','vip'], commissionType: 'massage', icon: 'therapist' },
+  { id: 'm_bali',    name: 'Balı Masajı',       cat: 'Masaj', duration: 50, price: 2000, pkgPrice: 2400, hasPackage: true, roomTypes: ['room','vip'], commissionType: 'massage', icon: 'therapist' },
+  { id: 'm_shiatsu', name: 'Shiatsu Masajı',    cat: 'Masaj', duration: 50, price: 2000, pkgPrice: 2400, hasPackage: true, roomTypes: ['room','vip'], commissionType: 'massage', icon: 'therapist' },
+  { id: 'm_lomi',    name: 'Lomi Lomi Masajı',  cat: 'Masaj', duration: 50, price: 2200, pkgPrice: 2600, hasPackage: true, roomTypes: ['room','vip'], commissionType: 'massage', icon: 'therapist' },
+  { id: 'm_medikal', name: 'Medikal Masaj',     cat: 'Masaj', duration: 50, price: 2200, pkgPrice: 2600, hasPackage: true, roomTypes: ['room','vip'], commissionType: 'massage', icon: 'therapist' },
+  { id: 'm_aroma',   name: 'Aromaterapi Masaj', cat: 'Masaj', duration: 50, price: 2200, pkgPrice: 2600, hasPackage: true, roomTypes: ['room','vip'], commissionType: 'massage', icon: 'drop' },
+  { id: 'm_mix',     name: 'Mix Masaj',         cat: 'Masaj', duration: 50, price: 2400, pkgPrice: 2800, hasPackage: true, roomTypes: ['room','vip'], commissionType: 'massage', icon: 'therapist' },
+  { id: 'm_derin',   name: 'Derin Doku Masajı', cat: 'Masaj', duration: 50, price: 2400, pkgPrice: 2800, hasPackage: true, roomTypes: ['room','vip'], commissionType: 'massage', icon: 'therapist' },
+  { id: 'm_sicak',   name: 'Sıcak Taş Masajı',  cat: 'Masaj', duration: 50, price: 2600, pkgPrice: 3000, hasPackage: true, roomTypes: ['room','vip'], commissionType: 'massage', icon: 'therapist' },
+  { id: 'm_sporcu',  name: 'Sporcu Masajı',     cat: 'Masaj', duration: 50, price: 2600, pkgPrice: 3000, hasPackage: true, roomTypes: ['room','vip'], commissionType: 'massage', icon: 'therapist' },
+  { id: 'm_sultan',  name: 'Sultan Masajı',     cat: 'Masaj', duration: 50, price: 4000, pkgPrice: 4400, hasPackage: true, roomTypes: ['vip','room'], commissionType: 'massage', icon: 'star', tag: '4 Hand' },
+  { id: 'h_kese',    name: 'Kese & Köpük Hamam', cat: 'Hamam', duration: 30, price: 800, roomTypes: ['hammam'], commissionType: 'scrub', icon: 'drop' },
+  { id: 'h_free',    name: 'Ücretsiz Hamam Kullanımı', cat: 'Hamam', duration: 60, price: 0, roomTypes: ['hammam'], commissionType: 'none', free: true, icon: 'drop' },
 ]
+
+// Randevu açarken "müşteri gelince karar verecek" seçeneği (girişte belirlenir)
+export const UNDECIDED_SERVICE = {
+  id: 'undecided', name: 'Girişte Belirlenecek', cat: 'Karar', duration: 60, price: 0,
+  roomTypes: ['room', 'vip', 'hammam', 'cabin'], commissionType: 'none', undecided: true, icon: 'clock',
+}
 
 // ---- Odalar / kabin / hamam (Sayfa 06) ---------------------------------------
 // status: free | busy | soon | clean | maint
@@ -95,16 +113,18 @@ export const guests = [
 
 // ---- Bugünkü randevular (Sayfa 01/05) ----------------------------------------
 // status: booked | inservice | done ; freeHammam ise terapist yok, prim yok
+// variant: 'solo' (Sadece Masaj) | 'package' (Paket) — masajlarda geçerli
+// commissionType randevuda saklanır: prim ödeme anında buna göre yazılır
 export const appointments = [
-  { id: 'a1', time: '10:00', end: '10:50', serviceId: 's1', service: 'Klasik Masaj',   therapistId: 't1', therapist: 'Dita',  roomId: 'r1', room: 'Room 1',  guestId: 'g1', guest: 'Anıl Özel',     price: 1800, status: 'done',      pay: 'card' },
-  { id: 'a2', time: '11:30', end: '12:30', serviceId: 's3', service: 'Bali Masajı',    therapistId: 't3', therapist: 'Selin', roomId: 'r2', room: 'Room 2',  guestId: 'g4', guest: 'Elena Petrova', price: 2300, status: 'inservice', pay: null },
-  { id: 'a3', time: '13:00', end: '13:45', serviceId: 's8', service: 'Cilt Bakımı',    therapistId: 't3', therapist: 'Selin', roomId: 'c1', room: 'Kabin 1', guestId: 'g4', guest: 'Elena Petrova', price: 2100, status: 'booked',    pay: null },
-  { id: 'a4', time: '14:00', end: '15:00', serviceId: 's2', service: 'Deep Tissue Masaj', therapistId: 't1', therapist: 'Dita', roomId: 'r1', room: 'Room 1', guestId: 'g1', guest: 'Anıl Özel',   price: 2500, status: 'inservice', pay: null },
-  { id: 'a5', time: '14:30', end: '15:30', serviceId: 's7', service: 'Turkish Bath',   therapistId: 't2', therapist: 'Sitti', roomId: 'h1', room: 'Hammam',  guestId: 'g3', guest: 'Ahmet Yılmaz',  price: 1600, status: 'booked',    pay: null },
-  { id: 'a6', time: '15:00', end: '16:00', serviceId: 's9', service: 'Ücretsiz Hamam Kullanımı', therapistId: null, therapist: null, roomId: 'h1', room: 'Hammam', guestId: 'g2', guest: 'John Smith', price: 0, status: 'booked', pay: null, freeHammam: true },
-  { id: 'a7', time: '15:00', end: '16:30', serviceId: 's5', service: 'Couple Massage', therapistId: 't3', therapist: 'Selin', roomId: 'r3', room: 'Room 3',  guestId: 'g5', guest: 'Mehmet Demir',  price: 4600, status: 'booked',    pay: null },
-  { id: 'a8', time: '16:00', end: '17:15', serviceId: 's4', service: 'Aromatherapy',   therapistId: 't1', therapist: 'Dita',  roomId: 'v1', room: 'VIP Room', guestId: 'g6', guest: 'Sofia Rossi',   price: 2800, status: 'booked',    pay: null },
-  { id: 'a9', time: '18:00', end: '19:30', serviceId: 's4', service: 'Aromatherapy',   therapistId: 't1', therapist: 'Dita',  roomId: 'v1', room: 'VIP Room', guestId: 'g6', guest: 'Sofia Rossi',   price: 2800, status: 'booked',    pay: null },
+  { id: 'a1', time: '10:00', end: '10:50', serviceId: 'm_klasik',  service: 'Klasik Masaj',      variant: 'solo',    commissionType: 'massage', therapistId: 't1', therapist: 'Dita',  roomId: 'r1', room: 'Room 1',  guestId: 'g1', guest: 'Anıl Özel',     price: 1800, status: 'done',      pay: 'card' },
+  { id: 'a2', time: '11:30', end: '12:20', serviceId: 'm_bali',    service: 'Balı Masajı',       variant: 'solo',    commissionType: 'massage', therapistId: 't3', therapist: 'Selin', roomId: 'r2', room: 'Room 2',  guestId: 'g4', guest: 'Elena Petrova', price: 2000, status: 'inservice', pay: null },
+  { id: 'a3', time: '13:00', end: '14:20', serviceId: 'm_medikal', service: 'Medikal Masaj',     variant: 'package', commissionType: 'package', therapistId: 't3', therapist: 'Selin', roomId: 'r2', room: 'Room 2',  guestId: 'g4', guest: 'Elena Petrova', price: 2600, status: 'booked',    pay: null },
+  { id: 'a4', time: '14:00', end: '14:50', serviceId: 'm_derin',   service: 'Derin Doku Masajı', variant: 'solo',    commissionType: 'massage', therapistId: 't1', therapist: 'Dita',  roomId: 'r1', room: 'Room 1',  guestId: 'g1', guest: 'Anıl Özel',     price: 2400, status: 'inservice', pay: null },
+  { id: 'a5', time: '14:30', end: '15:00', serviceId: 'h_kese',    service: 'Kese & Köpük Hamam', variant: null,     commissionType: 'scrub',   therapistId: 't2', therapist: 'Sitti', roomId: 'h1', room: 'Hammam',  guestId: 'g3', guest: 'Ahmet Yılmaz',  price: 800,  status: 'booked',    pay: null },
+  { id: 'a6', time: '15:00', end: '16:00', serviceId: 'h_free',    service: 'Ücretsiz Hamam Kullanımı', variant: null, commissionType: 'none', therapistId: null, therapist: null, roomId: 'h1', room: 'Hammam', guestId: 'g2', guest: 'John Smith', price: 0, status: 'booked', pay: null, freeHammam: true },
+  { id: 'a7', time: '15:00', end: '16:20', serviceId: 'm_sultan',  service: 'Sultan Masajı',     variant: 'package', commissionType: 'package', therapistId: 't4', therapist: 'Arda',  roomId: 'v1', room: 'VIP Room', guestId: 'g5', guest: 'Mehmet Demir',  price: 4400, status: 'booked',    pay: null },
+  { id: 'a8', time: '16:00', end: '16:50', serviceId: 'm_aroma',   service: 'Aromaterapi Masaj', variant: 'solo',    commissionType: 'massage', therapistId: 't1', therapist: 'Dita',  roomId: 'v1', room: 'VIP Room', guestId: 'g6', guest: 'Sofia Rossi',   price: 2200, status: 'booked',    pay: null },
+  { id: 'a9', time: '17:00', end: '17:50', serviceId: 'undecided', service: 'Girişte Belirlenecek', variant: null,  commissionType: 'none',    therapistId: 't2', therapist: 'Sitti', roomId: 'r3', room: 'Room 3',  guestId: 'g5', guest: 'Mehmet Demir',  price: 0,    status: 'booked',    pay: null, undecided: true },
 ]
 
 // ---- Paketler (Sayfa 14) -----------------------------------------------------

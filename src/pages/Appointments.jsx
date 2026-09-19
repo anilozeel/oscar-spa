@@ -19,7 +19,7 @@ const STATUS_TAG = {
 
 export default function Appointments() {
   const store = useStore()
-  const { visibleAppointments, services, therapists, rooms, HOURS, fmtTRY, addAppointment, findConflict, guests, ROOM_TYPE_LABEL } = store
+  const { visibleAppointments, HOURS, fmtTRY } = store
   const [open, setOpen] = useState(false)
   const [view, setView] = useState('timeline')
 
@@ -69,7 +69,7 @@ export default function Appointments() {
               {[...visibleAppointments].sort((a, b) => a.time.localeCompare(b.time)).map((a) => (
                 <tr key={a.id}>
                   <td className="nowrap" style={{ fontWeight: 600 }}>{a.time}</td>
-                  <td>{a.service} {a.freeHammam && <Badge kind="free">ÜCRETSİZ</Badge>}</td>
+                  <td>{a.service} <Tags a={a} /></td>
                   <td>{a.guest}</td>
                   <td className={!a.therapist ? 'muted' : ''}>{a.therapist || '—'}</td>
                   <td>{a.room}</td>
@@ -87,6 +87,16 @@ export default function Appointments() {
   )
 }
 
+function Tags({ a }) {
+  return (
+    <>
+      {a.variant === 'package' && <Badge kind="sage">PAKET</Badge>}
+      {a.freeHammam && <Badge kind="free">ÜCRETSİZ</Badge>}
+      {a.undecided && <Badge kind="free">KARAR BEKLİYOR</Badge>}
+    </>
+  )
+}
+
 function Row({ hour, appts, store }) {
   const { fmtTRY } = store
   return (
@@ -95,14 +105,15 @@ function Row({ hour, appts, store }) {
       <div className="cal-col">
         <div className="cal-slot">
           {appts.map((a) => (
-            <div key={a.id} className={`appt ${a.freeHammam ? 'free-hammam' : ''} ${a.status === 'done' ? 'done' : ''}`}>
+            <div key={a.id} className={`appt ${a.freeHammam ? 'free-hammam' : ''} ${a.undecided ? 'undecided' : ''} ${a.status === 'done' ? 'done' : ''}`}>
               <div className="a-top">
-                <span className="a-svc">{a.service}</span>
+                <span className="a-svc">{a.service} {a.variant === 'package' && <Badge kind="sage">PAKET</Badge>}</span>
                 <span className="a-price">{a.price ? fmtTRY(a.price) : '₺0'}</span>
               </div>
               <div className="a-meta">
                 {a.time}–{a.end} · {a.room} · {a.therapist || 'Terapistsiz'} · {a.guest}
                 {a.freeHammam && <> · <b style={{ color: 'var(--gold-deep)' }}>HAMAM • ÜCRETSİZ</b></>}
+                {a.undecided && <> · <b style={{ color: 'var(--gold-deep)' }}>GİRİŞTE BELİRLENECEK</b></>}
               </div>
             </div>
           ))}
@@ -114,16 +125,24 @@ function Row({ hour, appts, store }) {
 
 // ---- 5 adımlı randevu akışı (Sayfa 05) --------------------------------------
 function NewAppointment({ store, onClose }) {
-  const { services, therapists, rooms, guests, fmtTRY, addAppointment, findConflict, ROOM_TYPE_LABEL } = store
+  const { services, therapists, rooms, guests, fmtTRY, addAppointment, findConflict,
+          ROOM_TYPE_LABEL, UNDECIDED_SERVICE, PACKAGE_DURATION, PACKAGE_INFO } = store
   const [step, setStep] = useState(0)
   const [svc, setSvc] = useState(null)
+  const [variant, setVariant] = useState('solo') // solo | package
   const [time, setTime] = useState('15:00')
   const [therapistId, setTherapistId] = useState(null)
   const [roomId, setRoomId] = useState(null)
   const [guestId, setGuestId] = useState(guests[0].id)
 
-  const isFree = svc?.commissionType === 'none'
-  const end = svc ? addMin(time, svc.duration) : time
+  const isFree = !!svc?.free
+  const isUndecided = !!svc?.undecided
+  const isPackage = svc?.hasPackage && variant === 'package'
+
+  const price = !svc ? 0 : (svc.hasPackage ? (isPackage ? svc.pkgPrice : svc.price) : svc.price)
+  const duration = !svc ? 0 : (isPackage ? PACKAGE_DURATION : svc.duration)
+  const commissionType = !svc ? 'none' : (svc.hasPackage ? (isPackage ? 'package' : 'massage') : svc.commissionType)
+  const end = svc ? addMin(time, duration) : time
   const draftBase = { time, end }
 
   const freeTherapists = useMemo(() =>
@@ -133,6 +152,7 @@ function NewAppointment({ store, onClose }) {
     rooms.filter((r) => svc?.roomTypes.includes(r.type) && !findConflict({ ...draftBase, roomId: r.id })),
     [time, end, svc, rooms])
 
+  // Ücretsiz hamamda terapist adımı yok; diğer her şeyde (karar dahil) var
   const STEPS = isFree
     ? ['Hizmet', 'Süre & Saat', 'Oda', 'Onay']
     : ['Hizmet', 'Süre & Saat', 'Terapist', 'Oda', 'Onay']
@@ -144,20 +164,24 @@ function NewAppointment({ store, onClose }) {
   const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1))
   const back = () => setStep((s) => Math.max(0, s - 1))
 
+  const pickService = (s) => { setSvc(s); setVariant('solo'); setTherapistId(null); setRoomId(null) }
+
   const confirm = () => {
     const ok = addAppointment({
-      time, end, serviceId: svc.id, service: svc.name,
+      time, end, serviceId: svc.id,
+      service: svc.name,
+      variant: svc.hasPackage ? variant : null,
+      commissionType,
       therapistId: isFree ? null : therapistId,
       therapist: isFree ? null : therapist?.name,
       roomId, room: room?.name, guestId, guest: guest?.name,
-      price: svc.price, status: 'booked', pay: null, freeHammam: isFree,
+      price, status: 'booked', pay: null,
+      freeHammam: isFree, undecided: isUndecided,
     })
     if (ok) onClose()
   }
 
-  // Adım içerikleri: isFree ise terapist adımı atlanır
   const realStep = STEPS[step]
-
   const canNext =
     realStep === 'Hizmet' ? !!svc :
     realStep === 'Süre & Saat' ? !!time :
@@ -174,7 +198,6 @@ function NewAppointment({ store, onClose }) {
             : <Button icon="check" onClick={confirm}>Randevuyu Oluştur</Button>}
         </>
       }>
-      {/* Stepper */}
       <div className="steps">
         {STEPS.map((s, i) => (
           <div key={s} className={`step ${i === step ? 'on' : ''} ${i < step ? 'done' : ''}`}>
@@ -188,32 +211,56 @@ function NewAppointment({ store, onClose }) {
       {realStep === 'Hizmet' && (
         <div className="pick-grid">
           {services.map((s) => (
-            <button key={s.id} className={`pick ${svc?.id === s.id ? 'on' : ''}`}
-              onClick={() => { setSvc(s); setTherapistId(null); setRoomId(null) }}>
-              <div className="p-t">{s.name} {s.free && <Badge kind="free">ÜCRETSİZ</Badge>}</div>
-              <div className="p-s">{s.cat} · {s.duration} dk · {s.price ? fmtTRY(s.price) : '₺0'}</div>
+            <button key={s.id} className={`pick ${svc?.id === s.id ? 'on' : ''}`} onClick={() => pickService(s)}>
+              <div className="p-t">{s.name} {s.free && <Badge kind="free">ÜCRETSİZ</Badge>} {s.tag && <Badge kind="gold">{s.tag}</Badge>}</div>
+              <div className="p-s">
+                {s.cat} · {s.duration} dk · {s.price ? fmtTRY(s.price) : '₺0'}
+                {s.hasPackage && <> · Paket {fmtTRY(s.pkgPrice)}</>}
+              </div>
             </button>
           ))}
+          {/* Müşteri gelince karar verecek */}
+          <button className={`pick decide ${svc?.id === 'undecided' ? 'on' : ''}`} onClick={() => pickService(UNDECIDED_SERVICE)}>
+            <div className="p-t"><Icon.clock style={{ width: 15, height: 15, verticalAlign: '-2px' }} /> Müşteri gelince karar verecek</div>
+            <div className="p-s">Slotu şimdi ayır; hizmet girişte / ödeme anında belirlenir</div>
+          </button>
         </div>
       )}
 
       {realStep === 'Süre & Saat' && (
-        <div className="grid g-2" style={{ gap: 16 }}>
-          <div className="field">
-            <label>Başlangıç saati</label>
-            <select className="select" value={time} onChange={(e) => setTime(e.target.value)}>
-              {SLOTS.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div className="field">
-            <label>Süre & Fiyat</label>
-            <div className="input" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-2)' }}>
-              <span>{svc.duration} dk · {time}–{end}</span>
-              <b>{svc.price ? fmtTRY(svc.price) : '₺0'}</b>
+        <>
+          {svc.hasPackage && (
+            <div className="field" style={{ marginBottom: 16 }}>
+              <label>Satış türü</label>
+              <div className="seg" style={{ width: '100%' }}>
+                <button className={variant === 'solo' ? 'on' : ''} style={{ flex: 1 }} onClick={() => setVariant('solo')}>
+                  Sadece Masaj · {fmtTRY(svc.price)}
+                </button>
+                <button className={variant === 'package' ? 'on' : ''} style={{ flex: 1 }} onClick={() => setVariant('package')}>
+                  Paket · {fmtTRY(svc.pkgPrice)}
+                </button>
+              </div>
+              {isPackage && <p className="muted small" style={{ marginTop: 8 }}>{PACKAGE_INFO}</p>}
+            </div>
+          )}
+          <div className="grid g-2" style={{ gap: 16 }}>
+            <div className="field">
+              <label>Başlangıç saati</label>
+              <select className="select" value={time} onChange={(e) => setTime(e.target.value)}>
+                {SLOTS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label>Süre & Fiyat</label>
+              <div className="input" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-2)' }}>
+                <span>{duration} dk · {time}–{end}</span>
+                <b>{price ? fmtTRY(price) : '₺0'}</b>
+              </div>
             </div>
           </div>
-          {isFree && <div style={{ gridColumn: '1/-1' }}><Helper>Ücretsiz hamam kullanımı: terapist seçimi istenmez, tutar ve prim ₺0’dır — ancak hamam kapasitesini yine de bloke eder.</Helper></div>}
-        </div>
+          {isFree && <div style={{ marginTop: 14 }}><Helper>Ücretsiz hamam kullanımı: terapist seçimi istenmez, tutar ve prim ₺0’dır — ancak hamam kapasitesini yine de bloke eder.</Helper></div>}
+          {isUndecided && <div style={{ marginTop: 14 }}><Helper>Karar bekleyen randevu: slot (terapist + oda + saat) şimdi ayrılır. Misafir geldiğinde gerçek hizmet <b>Satış &amp; POS</b> ekranında seçilir; fiyat ve prim o an belirlenir.</Helper></div>}
+        </>
       )}
 
       {realStep === 'Terapist' && (
@@ -259,12 +306,12 @@ function NewAppointment({ store, onClose }) {
             </select>
           </div>
           <div className="card" style={{ background: 'var(--surface-2)' }}>
-            <div className="kv"><span className="k">Hizmet</span><span className="v">{svc.name}</span></div>
-            <div className="kv"><span className="k">Saat</span><span className="v">{time}–{end} ({svc.duration} dk)</span></div>
+            <div className="kv"><span className="k">Hizmet</span><span className="v">{isUndecided ? 'Girişte belirlenecek' : svc.name}{isPackage ? ' · Paket' : (svc.hasPackage ? ' · Sadece Masaj' : '')}</span></div>
+            <div className="kv"><span className="k">Saat</span><span className="v">{time}–{end} ({duration} dk)</span></div>
             <div className="kv"><span className="k">Terapist</span><span className="v">{isFree ? 'Terapistsiz (ücretsiz hamam)' : therapist?.name}</span></div>
             <div className="kv"><span className="k">Oda</span><span className="v">{room?.name}</span></div>
             <div className="kv"><span className="k">Misafir</span><span className="v">{guest?.name}</span></div>
-            <div className="kv"><span className="k">Tutar</span><span className="v money">{svc.price ? fmtTRY(svc.price) : '₺0'}</span></div>
+            <div className="kv"><span className="k">Tutar</span><span className="v money">{isUndecided ? 'Girişte belirlenecek' : (price ? fmtTRY(price) : '₺0')}</span></div>
           </div>
         </div>
       )}
