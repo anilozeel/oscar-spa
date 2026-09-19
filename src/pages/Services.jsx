@@ -1,18 +1,19 @@
 import { useState } from 'react'
 import { useStore } from '../state/store.jsx'
-import { PageHead, Panel, Badge, Button } from '../components/ui.jsx'
+import { PageHead, Panel, Badge, Button, Modal } from '../components/ui.jsx'
 import Icon from '../components/icons.jsx'
 
 export default function Services() {
-  const { services, fmtTRY, fmtUSD, commissionFor, ROOM_TYPE_LABEL, PACKAGE_INFO, SOLO_INFO } = useStore()
+  const { services, fmtTRY, fmtUSD, commissionFor, ROOM_TYPE_LABEL, PACKAGE_INFO, SOLO_INFO, addService } = useStore()
   const [mode, setMode] = useState('solo') // solo | package
+  const [add, setAdd] = useState(false)
   const massages = services.filter((s) => s.cat === 'Masaj')
   const hamam = services.filter((s) => s.cat === 'Hamam')
 
   return (
     <div className="page">
       <PageHead title="Hizmetler" sub="Spa & Wellness menüsü — Sadece Masaj ve Paket fiyatları, süre, oda tipi ve prim."
-        action={<Button icon="plus">Yeni Hizmet</Button>} />
+        action={<Button icon="plus" onClick={() => setAdd(true)}>Yeni Hizmet</Button>} />
 
       <Panel title="Spa & Wellness Menü" serif
         action={
@@ -26,8 +27,8 @@ export default function Services() {
         </p>
         <div className="menu-list">
           {massages.map((s) => {
-            const price = mode === 'package' ? s.pkgPrice : s.price
-            const usd = commissionFor(mode === 'package' ? 'package' : 'massage')
+            const price = mode === 'package' ? (s.pkgPrice ?? s.price) : s.price
+            const usd = commissionFor(mode === 'package' && s.hasPackage ? 'package' : 'massage')
             return (
               <div key={s.id} className="menu-row">
                 <div className="mr-name">
@@ -82,6 +83,78 @@ export default function Services() {
           })}
         </div>
       </Panel>
+
+      {add && <NewService onClose={() => setAdd(false)} addService={addService} fmtTRY={fmtTRY} />}
     </div>
+  )
+}
+
+function NewService({ onClose, addService, fmtTRY }) {
+  const [f, setF] = useState({ name: '', cat: 'Masaj', duration: 50, price: 2000, hasPackage: true, pkgPrice: 2400 })
+  const set = (k, v) => setF((s) => ({ ...s, [k]: v }))
+  const isMasaj = f.cat === 'Masaj'
+  const valid = f.name.trim() && Number(f.price) >= 0 && Number(f.duration) > 0
+
+  const save = () => {
+    addService({
+      name: f.name.trim(),
+      cat: f.cat,
+      duration: Number(f.duration),
+      price: Number(f.price),
+      hasPackage: isMasaj && f.hasPackage,
+      ...(isMasaj && f.hasPackage ? { pkgPrice: Number(f.pkgPrice) } : {}),
+      roomTypes: isMasaj ? ['room', 'vip'] : ['hammam'],
+      commissionType: isMasaj ? 'massage' : 'scrub',
+      icon: isMasaj ? 'therapist' : 'drop',
+    })
+    onClose()
+  }
+
+  return (
+    <Modal title="Yeni Hizmet" sub="Menüye yeni bir hizmet ekleyin." onClose={onClose}
+      footer={<>
+        <Button variant="ghost" onClick={onClose}>Vazgeç</Button>
+        <Button icon="check" disabled={!valid} onClick={save}>Hizmeti Ekle</Button>
+      </>}>
+      <div className="field" style={{ marginBottom: 14 }}>
+        <label>Hizmet adı</label>
+        <input className="input" autoFocus value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="Örn. Refleksoloji Masajı" />
+      </div>
+      <div className="grid g-2" style={{ gap: 14 }}>
+        <div className="field">
+          <label>Kategori</label>
+          <select className="select" value={f.cat} onChange={(e) => set('cat', e.target.value)}>
+            <option value="Masaj">Masaj</option>
+            <option value="Hamam">Hamam</option>
+          </select>
+        </div>
+        <div className="field">
+          <label>Süre (dk)</label>
+          <input className="input" type="number" min="5" step="5" value={f.duration} onChange={(e) => set('duration', e.target.value)} />
+        </div>
+      </div>
+      <div className="grid g-2" style={{ gap: 14, marginTop: 14 }}>
+        <div className="field">
+          <label>{isMasaj ? 'Sadece Masaj fiyatı (₺)' : 'Fiyat (₺)'}</label>
+          <input className="input" type="number" min="0" step="50" value={f.price} onChange={(e) => set('price', e.target.value)} />
+        </div>
+        {isMasaj && (
+          <div className="field">
+            <label>Paket fiyatı (₺)</label>
+            <input className="input" type="number" min="0" step="50" value={f.pkgPrice} onChange={(e) => set('pkgPrice', e.target.value)} disabled={!f.hasPackage} />
+          </div>
+        )}
+      </div>
+      {isMasaj && (
+        <label className="center gap-sm small" style={{ marginTop: 12, cursor: 'pointer' }}>
+          <input type="checkbox" checked={f.hasPackage} onChange={(e) => set('hasPackage', e.target.checked)} />
+          Paket satışı da sunulsun (50 dk masaj + 30 dk kese & köpük · sauna, hamam, maske & içecek)
+        </label>
+      )}
+      <div className="card" style={{ background: 'var(--surface-2)', marginTop: 16 }}>
+        <div className="kv"><span className="k">Prim</span><span className="v">{isMasaj ? 'Masaj $1.00 · Paket $1.50' : 'Kese/Köpük $0.50'}</span></div>
+        <div className="kv"><span className="k">Oda tipi</span><span className="v">{isMasaj ? 'Oda / VIP' : 'Hamam'}</span></div>
+      </div>
+    </Modal>
   )
 }

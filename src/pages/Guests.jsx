@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useStore } from '../state/store.jsx'
 import { PageHead, Panel, Badge, Chip, Avatar, Button } from '../components/ui.jsx'
 import Icon from '../components/icons.jsx'
@@ -13,6 +14,7 @@ const AUTOMATIONS = [
 
 export default function Guests() {
   const { guests, fmtTRY, appointments } = useStore()
+  const nav = useNavigate()
   const [sel, setSel] = useState(guests[0].id)
   const [q, setQ] = useState('')
   const g = guests.find((x) => x.id === sel)
@@ -75,7 +77,7 @@ export default function Guests() {
                 <div className="card" style={{ background: 'var(--surface-2)', fontSize: 13.5, color: 'var(--ink-2)' }}>{g.notes}</div>
               </div>
             )}
-            <Button block variant="ghost" icon="calendar" style={{ marginTop: 18 }}>Yeni Randevu Aç</Button>
+            <Button block variant="ghost" icon="calendar" style={{ marginTop: 18 }} onClick={() => nav('/randevular')}>Yeni Randevu Aç</Button>
           </Panel>
 
           <div className="grid" style={{ gap: 18 }}>

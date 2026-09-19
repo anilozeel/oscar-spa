@@ -8,12 +8,35 @@ const REPORTS = [
 ]
 
 export default function Reports() {
-  const { KPIS, therapists, fmtUSD, aiSuggestions, toast } = useStore()
+  const { KPIS, therapists, fmtUSD, aiSuggestions, toast, sales } = useStore()
+
+  const exportCSV = () => {
+    const rows = [
+      ['OscarSpa — Rapor', new Date().toLocaleString('tr-TR')],
+      [],
+      ['KPI', 'Değer', 'Değişim'],
+      ...Object.values(KPIS).map((k) => [k.label, k.value, `+${k.delta}%`]),
+      [],
+      ['Terapist', 'Bugünkü işlem', 'Aylık prim (USD)', 'Doluluk %'],
+      ...therapists.map((t) => [t.name, t.todayCount, t.monthCommissionUsd, t.load]),
+      [],
+      ['Kapatılan adisyonlar (bu oturum)', sales.length],
+    ]
+    const csv = rows.map((r) => r.map((c) => `"${String(c ?? '')}"`).join(';')).join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `oscarspa-rapor-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(a); a.click(); a.remove()
+    URL.revokeObjectURL(url)
+    toast('Rapor CSV olarak indirildi')
+  }
 
   return (
     <div className="page">
       <PageHead title="Raporlama" sub="Ciro, doluluk ve hizmet analizleri; günlük karar vermeye uygun net raporlar."
-        action={<Button variant="ghost" icon="report">Dışa Aktar</Button>} />
+        action={<Button variant="ghost" icon="report" onClick={exportCSV}>Dışa Aktar</Button>} />
 
       <div className="grid g-4">
         <Stat label={KPIS.revenue.label} value={KPIS.revenue.value} delta={KPIS.revenue.delta} icon="finance" />

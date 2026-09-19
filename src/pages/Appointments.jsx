@@ -1,15 +1,22 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useStore } from '../state/store.jsx'
 import { PageHead, Panel, Button, Badge, Modal, Helper } from '../components/ui.jsx'
 import Icon from '../components/icons.jsx'
 
-const addMin = (t, m) => {
-  const [h, mm] = t.split(':').map(Number)
-  const total = h * 60 + mm + m
-  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
-}
+const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
+const fmtMin = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+const addMin = (t, m) => fmtMin(toMin(t) + m)
+
 const SLOTS = []
 for (let h = 9; h <= 20; h++) { SLOTS.push(`${String(h).padStart(2, '0')}:00`); if (h < 20) SLOTS.push(`${String(h).padStart(2, '0')}:30`) }
+
+// Takvim gün aralığı
+const DAY_START = 9 * 60      // 09:00
+const DAY_END = 22 * 60       // 22:00
+const PXPM = 1                // 1 piksel / dakika  (30 dk = 30px)
+const GRID = []
+for (let m = DAY_START; m < DAY_END; m += 30) GRID.push({ min: m, label: fmtMin(m), hour: m % 60 === 0 })
 
 const STATUS_TAG = {
   booked: { label: 'Planlandı', kind: 'sage' },
@@ -19,30 +26,28 @@ const STATUS_TAG = {
 
 export default function Appointments() {
   const store = useStore()
-  const { visibleAppointments, HOURS, fmtTRY } = store
+  const { visibleAppointments, therapists, fmtTRY } = store
   const [open, setOpen] = useState(false)
-  const [view, setView] = useState('timeline')
+  const [detail, setDetail] = useState(null)
+  const [view, setView] = useState('day')
+  const [offset, setOffset] = useState(0)
+  const [hidden, setHidden] = useState(() => new Set()) // gizlenen terapist sütunları
 
-  const byHour = useMemo(() => {
-    const map = {}
-    HOURS.forEach((h) => { map[h] = [] })
-    visibleAppointments.forEach((a) => {
-      const hour = a.time.slice(0, 2) + ':00'
-      ;(map[hour] ||= []).push(a)
-    })
-    Object.values(map).forEach((arr) => arr.sort((x, y) => x.time.localeCompare(y.time)))
-    return map
-  }, [visibleAppointments, HOURS])
+  const base = new Date(); base.setDate(base.getDate() + offset)
+  const dateLabel = base.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  const dayAppts = offset === 0 ? visibleAppointments : []
+
+  const toggle = (id) => setHidden((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
 
   return (
     <div className="page">
       <PageHead
         title="Randevu Takvimi"
-        sub="Resepsiyon tek ekranda hizmeti seçer; sistem uygun terapist ve odayı otomatik önerir."
+        sub="Terapist bazlı günlük görünüm — her randevu ilgili terapistin sütununda görünür."
         action={
           <div className="center gap">
             <div className="seg">
-              <button className={view === 'timeline' ? 'on' : ''} onClick={() => setView('timeline')}>Zaman Çizelgesi</button>
+              <button className={view === 'day' ? 'on' : ''} onClick={() => setView('day')}>Günlük görünüm</button>
               <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>Liste</button>
             </div>
             <Button icon="plus" onClick={() => setOpen(true)}>Yeni Randevu</Button>
@@ -50,24 +55,32 @@ export default function Appointments() {
         }
       />
 
-      <Helper>
-        <b>Kritik kural:</b> Aynı terapist ve oda aynı saatte ikinci kez rezerve edilemez. Paket hakkı, oda durumu, terapist mesaisi ve ödeme tipi aynı anda kontrol edilir.
-      </Helper>
+      {/* Araç çubuğu: tarih navigasyonu + terapist filtresi */}
+      <div className="cal-toolbar">
+        <div className="center gap-sm">
+          <button className="icon-btn" style={{ width: 38, height: 38 }} onClick={() => setOffset((o) => o - 1)}><Icon.chevron style={{ transform: 'rotate(90deg)' }} /></button>
+          <div className="cal-date">{dateLabel}</div>
+          <button className="icon-btn" style={{ width: 38, height: 38 }} onClick={() => setOffset((o) => o + 1)}><Icon.chevronR /></button>
+          <Button variant="ghost" sm onClick={() => setOffset(0)}>Bugün</Button>
+        </div>
+        <div className="center gap-sm wrap">
+          {therapists.filter((t) => t.active).map((t) => (
+            <button key={t.id} className={`tf-chip ${hidden.has(t.id) ? 'off' : ''}`} onClick={() => toggle(t.id)}>
+              <span className="tf-dot" style={{ background: t.color }} />{t.name}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      <Panel className="section-gap" title={new Date().toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' })}
-        action={<span className="chip"><Icon.clock /> {visibleAppointments.filter(a => a.status !== 'done').length} aktif randevu</span>}>
-        {view === 'timeline' ? (
-          <div className="cal">
-            {HOURS.map((h) => (
-              <Row key={h} hour={h} appts={byHour[h] || []} store={store} />
-            ))}
-          </div>
-        ) : (
+      {view === 'day' ? (
+        <DayCalendar appts={dayAppts} therapists={therapists.filter((t) => t.active && !hidden.has(t.id))} onPick={setDetail} empty={offset !== 0} />
+      ) : (
+        <Panel className="section-gap" title={dateLabel}>
           <table className="table">
             <thead><tr><th>Saat</th><th>Hizmet</th><th>Misafir</th><th>Terapist</th><th>Oda</th><th className="num">Tutar</th><th>Durum</th></tr></thead>
             <tbody>
-              {[...visibleAppointments].sort((a, b) => a.time.localeCompare(b.time)).map((a) => (
-                <tr key={a.id}>
+              {[...dayAppts].sort((a, b) => a.time.localeCompare(b.time)).map((a) => (
+                <tr key={a.id} style={{ cursor: 'pointer' }} onClick={() => setDetail(a)}>
                   <td className="nowrap" style={{ fontWeight: 600 }}>{a.time}</td>
                   <td>{a.service} <Tags a={a} /></td>
                   <td>{a.guest}</td>
@@ -77,12 +90,18 @@ export default function Appointments() {
                   <td><Badge kind={STATUS_TAG[a.status].kind}>{STATUS_TAG[a.status].label}</Badge></td>
                 </tr>
               ))}
+              {!dayAppts.length && <tr><td colSpan="7" className="muted" style={{ textAlign: 'center', padding: 30 }}>Bu güne ait randevu yok.</td></tr>}
             </tbody>
           </table>
-        )}
-      </Panel>
+        </Panel>
+      )}
+
+      <div className="section-gap">
+        <Helper><b>Kritik kural:</b> Aynı terapist ve oda aynı saatte ikinci kez rezerve edilemez; sistem çakışmayı engeller.</Helper>
+      </div>
 
       {open && <NewAppointment store={store} onClose={() => setOpen(false)} />}
+      {detail && <ApptDetail appt={detail} store={store} onClose={() => setDetail(null)} />}
     </div>
   )
 }
@@ -97,39 +116,88 @@ function Tags({ a }) {
   )
 }
 
-function Row({ hour, appts, store }) {
-  const { fmtTRY } = store
+// ---- Terapist sütunlu günlük takvim -----------------------------------------
+function DayCalendar({ appts, therapists, onPick, empty }) {
+  const cols = [...therapists.map((t) => ({ id: t.id, name: t.name, color: t.color }))]
+  const hasNone = appts.some((a) => !a.therapistId)
+  if (hasNone) cols.push({ id: 'none', name: 'Terapistsiz / Hamam', color: '#b8935a' })
+  const bodyH = DAY_END - DAY_START
+
   return (
-    <>
-      <div className="cal-time">{hour}</div>
-      <div className="cal-col">
-        <div className="cal-slot">
-          {appts.map((a) => (
-            <div key={a.id} className={`appt ${a.freeHammam ? 'free-hammam' : ''} ${a.undecided ? 'undecided' : ''} ${a.status === 'done' ? 'done' : ''}`}>
-              <div className="a-top">
-                <span className="a-svc">{a.service} {a.variant === 'package' && <Badge kind="sage">PAKET</Badge>}</span>
-                <span className="a-price">{a.price ? fmtTRY(a.price) : '₺0'}</span>
-              </div>
-              <div className="a-meta">
-                {a.time}–{a.end} · {a.room} · {a.therapist || 'Terapistsiz'} · {a.guest}
-                {a.freeHammam && <> · <b style={{ color: 'var(--gold-deep)' }}>HAMAM • ÜCRETSİZ</b></>}
-                {a.undecided && <> · <b style={{ color: 'var(--gold-deep)' }}>GİRİŞTE BELİRLENECEK</b></>}
-              </div>
-            </div>
+    <div className="tcal-wrap section-gap">
+      <div className="tcal" style={{ minWidth: 120 + cols.length * 180 }}>
+        {/* Başlıklar */}
+        <div className="tcal-head">
+          <div className="tcal-corner" />
+          {cols.map((c) => (
+            <div key={c.id} className="tcal-th" style={{ background: c.color }}>{c.name}</div>
           ))}
         </div>
+        {/* Gövde */}
+        <div className="tcal-body">
+          <div className="tcal-gutter" style={{ height: bodyH }}>
+            {GRID.map((g) => (
+              <div key={g.min} className="tcal-time" style={{ height: 30 }}>{g.hour ? g.label : ''}</div>
+            ))}
+          </div>
+          {cols.map((c) => {
+            const list = appts.filter((a) => (c.id === 'none' ? !a.therapistId : a.therapistId === c.id))
+            return (
+              <div key={c.id} className="tcal-col" style={{ height: bodyH }}>
+                {GRID.map((g) => <div key={g.min} className={`tcal-slot ${g.hour ? 'hour' : ''}`} style={{ height: 30 }} />)}
+                {list.map((a) => {
+                  const top = (toMin(a.time) - DAY_START) * PXPM
+                  const h = Math.max((toMin(a.end) - toMin(a.time)) * PXPM, 26)
+                  return (
+                    <button key={a.id} className="tcal-appt" onClick={() => onPick(a)}
+                      style={{ top, height: h, background: c.color, opacity: a.status === 'done' ? 0.55 : 1 }}>
+                      <div className="ta-time">{a.time} – {a.end}</div>
+                      <div className="ta-name">{a.guest} · {a.service}{a.variant === 'package' ? ' (PAKET)' : ''}</div>
+                    </button>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
       </div>
-    </>
+      {empty && <div className="empty" style={{ padding: 24 }}>Bu güne ait randevu yok. <b>Bugün</b>’e dönün veya yeni randevu ekleyin.</div>}
+    </div>
   )
 }
 
-// ---- 5 adımlı randevu akışı (Sayfa 05) --------------------------------------
+// ---- Randevu detay -----------------------------------------------------------
+function ApptDetail({ appt, store, onClose }) {
+  const { fmtTRY } = store
+  const nav = useNavigate()
+  return (
+    <Modal title={appt.service} sub={`${appt.time} – ${appt.end}`} onClose={onClose}
+      footer={<>
+        <Button variant="ghost" onClick={onClose}>Kapat</Button>
+        {appt.status !== 'done' && <Button icon="pos" onClick={() => { onClose(); nav('/satis') }}>Adisyona Git</Button>}
+      </>}>
+      <div className="center gap-sm wrap" style={{ marginBottom: 14 }}>
+        <Badge kind={STATUS_TAG[appt.status].kind}>{STATUS_TAG[appt.status].label}</Badge>
+        <Tags a={appt} />
+      </div>
+      <div className="card" style={{ background: 'var(--surface-2)' }}>
+        <div className="kv"><span className="k">Misafir</span><span className="v">{appt.guest}</span></div>
+        <div className="kv"><span className="k">Terapist</span><span className="v">{appt.therapist || 'Terapistsiz'}</span></div>
+        <div className="kv"><span className="k">Oda</span><span className="v">{appt.room}</span></div>
+        <div className="kv"><span className="k">Süre</span><span className="v">{appt.time} – {appt.end}</span></div>
+        <div className="kv"><span className="k">Tutar</span><span className="v money">{appt.undecided ? 'Girişte belirlenecek' : (appt.price ? fmtTRY(appt.price) : '₺0')}</span></div>
+      </div>
+    </Modal>
+  )
+}
+
+// ---- Yeni randevu akışı ------------------------------------------------------
 function NewAppointment({ store, onClose }) {
   const { services, therapists, rooms, guests, fmtTRY, addAppointment, findConflict,
           ROOM_TYPE_LABEL, UNDECIDED_SERVICE, PACKAGE_DURATION, PACKAGE_INFO } = store
   const [step, setStep] = useState(0)
   const [svc, setSvc] = useState(null)
-  const [variant, setVariant] = useState('solo') // solo | package
+  const [variant, setVariant] = useState('solo')
   const [time, setTime] = useState('15:00')
   const [therapistId, setTherapistId] = useState(null)
   const [roomId, setRoomId] = useState(null)
@@ -152,7 +220,6 @@ function NewAppointment({ store, onClose }) {
     rooms.filter((r) => svc?.roomTypes.includes(r.type) && !findConflict({ ...draftBase, roomId: r.id })),
     [time, end, svc, rooms])
 
-  // Ücretsiz hamamda terapist adımı yok; diğer her şeyde (karar dahil) var
   const STEPS = isFree
     ? ['Hizmet', 'Süre & Saat', 'Oda', 'Onay']
     : ['Hizmet', 'Süre & Saat', 'Terapist', 'Oda', 'Onay']
@@ -163,20 +230,16 @@ function NewAppointment({ store, onClose }) {
 
   const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1))
   const back = () => setStep((s) => Math.max(0, s - 1))
-
   const pickService = (s) => { setSvc(s); setVariant('solo'); setTherapistId(null); setRoomId(null) }
 
   const confirm = () => {
     const ok = addAppointment({
-      time, end, serviceId: svc.id,
-      service: svc.name,
-      variant: svc.hasPackage ? variant : null,
-      commissionType,
+      time, end, serviceId: svc.id, service: svc.name,
+      variant: svc.hasPackage ? variant : null, commissionType,
       therapistId: isFree ? null : therapistId,
       therapist: isFree ? null : therapist?.name,
       roomId, room: room?.name, guestId, guest: guest?.name,
-      price, status: 'booked', pay: null,
-      freeHammam: isFree, undecided: isUndecided,
+      price, status: 'booked', pay: null, freeHammam: isFree, undecided: isUndecided,
     })
     if (ok) onClose()
   }
@@ -219,7 +282,6 @@ function NewAppointment({ store, onClose }) {
               </div>
             </button>
           ))}
-          {/* Müşteri gelince karar verecek */}
           <button className={`pick decide ${svc?.id === 'undecided' ? 'on' : ''}`} onClick={() => pickService(UNDECIDED_SERVICE)}>
             <div className="p-t"><Icon.clock style={{ width: 15, height: 15, verticalAlign: '-2px' }} /> Müşteri gelince karar verecek</div>
             <div className="p-s">Slotu şimdi ayır; hizmet girişte / ödeme anında belirlenir</div>
@@ -233,12 +295,8 @@ function NewAppointment({ store, onClose }) {
             <div className="field" style={{ marginBottom: 16 }}>
               <label>Satış türü</label>
               <div className="seg" style={{ width: '100%' }}>
-                <button className={variant === 'solo' ? 'on' : ''} style={{ flex: 1 }} onClick={() => setVariant('solo')}>
-                  Sadece Masaj · {fmtTRY(svc.price)}
-                </button>
-                <button className={variant === 'package' ? 'on' : ''} style={{ flex: 1 }} onClick={() => setVariant('package')}>
-                  Paket · {fmtTRY(svc.pkgPrice)}
-                </button>
+                <button className={variant === 'solo' ? 'on' : ''} style={{ flex: 1 }} onClick={() => setVariant('solo')}>Sadece Masaj · {fmtTRY(svc.price)}</button>
+                <button className={variant === 'package' ? 'on' : ''} style={{ flex: 1 }} onClick={() => setVariant('package')}>Paket · {fmtTRY(svc.pkgPrice)}</button>
               </div>
               {isPackage && <p className="muted small" style={{ marginTop: 8 }}>{PACKAGE_INFO}</p>}
             </div>
@@ -259,7 +317,7 @@ function NewAppointment({ store, onClose }) {
             </div>
           </div>
           {isFree && <div style={{ marginTop: 14 }}><Helper>Ücretsiz hamam kullanımı: terapist seçimi istenmez, tutar ve prim ₺0’dır — ancak hamam kapasitesini yine de bloke eder.</Helper></div>}
-          {isUndecided && <div style={{ marginTop: 14 }}><Helper>Karar bekleyen randevu: slot (terapist + oda + saat) şimdi ayrılır. Misafir geldiğinde gerçek hizmet <b>Satış &amp; POS</b> ekranında seçilir; fiyat ve prim o an belirlenir.</Helper></div>}
+          {isUndecided && <div style={{ marginTop: 14 }}><Helper>Karar bekleyen randevu: slot (terapist + oda + saat) şimdi ayrılır. Gerçek hizmet <b>Satış &amp; POS</b> ekranında seçilir; fiyat ve prim o an belirlenir.</Helper></div>}
         </>
       )}
 
@@ -271,7 +329,7 @@ function NewAppointment({ store, onClose }) {
               const free = freeTherapists.some((f) => f.id === t.id)
               return (
                 <button key={t.id} disabled={!free} className={`pick ${therapistId === t.id ? 'on' : ''}`} onClick={() => setTherapistId(t.id)}>
-                  <div className="p-t">{t.name}</div>
+                  <div className="p-t"><span className="tf-dot" style={{ background: t.color }} /> {t.name}</div>
                   <div className="p-s">{free ? 'Müsait' : 'Bu saatte dolu'} · {t.shift}</div>
                 </button>
               )

@@ -17,6 +17,8 @@ export function StoreProvider({ children }) {
   const [appointments, setAppointments] = useState(mock.appointments)
   const [rooms, setRooms] = useState(mock.rooms)
   const [inventory, setInventory] = useState(mock.inventory)
+  const [services, setServices] = useState(mock.services)
+  const [packages, setPackages] = useState(mock.packages)
   const [sales, setSales] = useState([])            // kapatılan adisyonlar (arşiv)
   const [commissions, setCommissions] = useState([]) // ödeme anında yazılan primler
   const [hiddenAppts, setHiddenAppts] = useState([]) // takvimden gizlenen (arşivde kalır)
@@ -141,6 +143,20 @@ export function StoreProvider({ children }) {
   const adjustStock = useCallback((id, delta) => {
     setInventory((l) => l.map((i) => (i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i)))
   }, [])
+  const addInventory = useCallback((data) => {
+    setInventory((l) => [...l, { ...data, id: 'inv_' + uid() }])
+    toast('Ürün eklendi')
+  }, [toast])
+
+  // --- Hizmet & paket ekleme -----------------------------------------------
+  const addService = useCallback((data) => {
+    setServices((l) => [...l, { ...data, id: 'svc_' + uid() }])
+    toast(`Hizmet eklendi: ${data.name}`)
+  }, [toast])
+  const addPackage = useCallback((data) => {
+    setPackages((l) => [{ ...data, id: 'pkg_' + uid(), used: 0 }, ...l])
+    toast(`Paket satıldı: ${data.name}`)
+  }, [toast])
 
   const visibleAppointments = useMemo(
     () => appointments.filter((a) => !hiddenAppts.includes(a.id)),
@@ -152,7 +168,9 @@ export function StoreProvider({ children }) {
     user, login, logout, canAccess,
     appointments, visibleAppointments, addAppointment, cancelAppointment, findConflict, closeTicket,
     rooms, setRoomStatus,
-    inventory, adjustStock,
+    inventory, adjustStock, addInventory,
+    services, addService,
+    packages, addPackage,
     sales, commissions,
     toast, toasts,
     sidebarOpen, setSidebarOpen,

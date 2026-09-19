@@ -1,16 +1,18 @@
+import { useState } from 'react'
 import { useStore } from '../state/store.jsx'
-import { PageHead, Panel, Badge, Button, Stat } from '../components/ui.jsx'
+import { PageHead, Panel, Badge, Button, Stat, Modal } from '../components/ui.jsx'
 import Icon from '../components/icons.jsx'
 
 export default function Inventory() {
-  const { inventory, adjustStock, fmtTRY } = useStore()
+  const { inventory, adjustStock, addInventory, fmtTRY } = useStore()
+  const [add, setAdd] = useState(false)
   const critical = inventory.filter((i) => i.qty < i.min)
   const totalValue = inventory.reduce((s, i) => s + i.qty * i.cost, 0)
 
   return (
     <div className="page">
       <PageHead title="Stok Yönetimi" sub="Ürün, sarf ve kritik stok uyarıları tek ekranda."
-        action={<Button icon="plus">Ürün Ekle</Button>} />
+        action={<Button icon="plus" onClick={() => setAdd(true)}>Ürün Ekle</Button>} />
 
       <div className="grid g-3">
         <Stat label="Toplam ürün çeşidi" value={inventory.length} icon="stock" />
@@ -63,6 +65,63 @@ export default function Inventory() {
           </tbody>
         </table>
       </Panel>
+
+      {add && <NewInventory onClose={() => setAdd(false)} addInventory={addInventory} />}
     </div>
+  )
+}
+
+function NewInventory({ onClose, addInventory }) {
+  const [f, setF] = useState({ name: '', cat: 'Sarf', qty: 20, min: 10, unit: 'adet', cost: 100 })
+  const set = (k, v) => setF((s) => ({ ...s, [k]: v }))
+  const valid = f.name.trim() && Number(f.qty) >= 0 && Number(f.min) >= 0
+
+  const save = () => {
+    addInventory({
+      name: f.name.trim(), cat: f.cat, unit: f.unit,
+      qty: Number(f.qty), min: Number(f.min), cost: Number(f.cost),
+    })
+    onClose()
+  }
+
+  return (
+    <Modal title="Ürün Ekle" sub="Stok listesine yeni ürün / sarf ekleyin." onClose={onClose}
+      footer={<>
+        <Button variant="ghost" onClick={onClose}>Vazgeç</Button>
+        <Button icon="check" disabled={!valid} onClick={save}>Ürünü Ekle</Button>
+      </>}>
+      <div className="field" style={{ marginBottom: 14 }}>
+        <label>Ürün adı</label>
+        <input className="input" autoFocus value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="Örn. Masaj Yağı 100 ml" />
+      </div>
+      <div className="grid g-2" style={{ gap: 14 }}>
+        <div className="field">
+          <label>Kategori</label>
+          <select className="select" value={f.cat} onChange={(e) => set('cat', e.target.value)}>
+            <option>Sarf</option><option>Tekstil</option><option>Ürün</option>
+          </select>
+        </div>
+        <div className="field">
+          <label>Birim</label>
+          <select className="select" value={f.unit} onChange={(e) => set('unit', e.target.value)}>
+            <option>adet</option><option>set</option><option>çift</option><option>kutu</option>
+          </select>
+        </div>
+      </div>
+      <div className="grid g-3" style={{ gap: 12, marginTop: 14 }}>
+        <div className="field">
+          <label>Stok</label>
+          <input className="input" type="number" min="0" value={f.qty} onChange={(e) => set('qty', e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Min. seviye</label>
+          <input className="input" type="number" min="0" value={f.min} onChange={(e) => set('min', e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Birim maliyet (₺)</label>
+          <input className="input" type="number" min="0" step="10" value={f.cost} onChange={(e) => set('cost', e.target.value)} />
+        </div>
+      </div>
+    </Modal>
   )
 }

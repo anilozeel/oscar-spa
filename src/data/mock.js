@@ -27,10 +27,10 @@ export const ROLE_ACCESS = {
 
 // ---- Terapistler (Sayfa 08) --------------------------------------------------
 export const therapists = [
-  { id: 't1', name: 'Dita',  initials: 'D', active: true, skills: ['Masaj','Kese köpük','Paket','Aromatherapy'], shift: '10:00 - 19:00', rating: 4.9, todayCount: 5, monthCommissionUsd: 128.5, load: 52 },
-  { id: 't2', name: 'Sitti', initials: 'S', active: true, skills: ['Masaj','Kese köpük','Paket','Turkish Bath'], shift: '11:00 - 20:00', rating: 4.8, todayCount: 7, monthCommissionUsd: 173.0, load: 88 },
-  { id: 't3', name: 'Selin', initials: 'SL', active: true, skills: ['Masaj','Couple','Cilt bakımı'], shift: '09:00 - 17:00', rating: 4.7, todayCount: 3, monthCommissionUsd: 74.0, load: 46 },
-  { id: 't4', name: 'Arda',  initials: 'A', active: true, skills: ['Masaj','Couple','Deep Tissue'], shift: '12:00 - 21:00', rating: 4.6, todayCount: 2, monthCommissionUsd: 51.5, load: 38 },
+  { id: 't1', name: 'Dita',  initials: 'D', color: '#d6336c', active: true, skills: ['Masaj','Kese köpük','Paket','Aromatherapy'], shift: '10:00 - 19:00', rating: 4.9, todayCount: 5, monthCommissionUsd: 128.5, load: 52 },
+  { id: 't2', name: 'Sitti', initials: 'S', color: '#3b5bdb', active: true, skills: ['Masaj','Kese köpük','Paket','Turkish Bath'], shift: '11:00 - 20:00', rating: 4.8, todayCount: 7, monthCommissionUsd: 173.0, load: 88 },
+  { id: 't3', name: 'Selin', initials: 'SL', color: '#0ca678', active: true, skills: ['Masaj','Couple','Cilt bakımı'], shift: '09:00 - 17:00', rating: 4.7, todayCount: 3, monthCommissionUsd: 74.0, load: 46 },
+  { id: 't4', name: 'Arda',  initials: 'A', color: '#7048e8', active: true, skills: ['Masaj','Couple','Deep Tissue'], shift: '12:00 - 21:00', rating: 4.6, todayCount: 2, monthCommissionUsd: 51.5, load: 38 },
 ]
 
 // ---- Prim kuralları (Sayfa 08) — varsayılan USD bazlı ------------------------

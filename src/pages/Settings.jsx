@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useStore } from '../state/store.jsx'
-import { PageHead, Panel, Badge, Chip, Avatar } from '../components/ui.jsx'
+import { PageHead, Panel, Badge, Chip, Avatar, Button } from '../components/ui.jsx'
 import Icon from '../components/icons.jsx'
 
 const USERS = [
@@ -22,7 +22,7 @@ function Toggle({ on, onChange }) {
 }
 
 export default function Settings() {
-  const { ROLES } = useStore()
+  const { ROLES, toast } = useStore()
   const [integrations, setIntegrations] = useState({ pms: true, whatsapp: true, online: false, ai: false })
 
   const INTS = [
@@ -70,6 +70,7 @@ export default function Settings() {
               <label>Prim para birimi</label>
               <select className="select" defaultValue="USD"><option>USD</option><option>TRY</option></select>
             </div>
+            <Button icon="check" style={{ marginTop: 16 }} onClick={() => toast('Ayarlar kaydedildi')}>Kaydet</Button>
           </Panel>
 
           <Panel title="Rol Erişim Özeti">

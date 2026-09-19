@@ -597,3 +597,30 @@ textarea.input { resize: vertical; min-height: 84px; }
   .mr-name { font-size: 14px; }
   .menu-row .muted.small { display: none; }
 }
+
+/* =========================================================================
+   Terapist sütunlu günlük takvim
+   ========================================================================= */
+.cal-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-top: 16px; }
+.cal-date { font-weight: 600; color: var(--forest-ink); font-size: 15px; min-width: 220px; text-align: center; }
+.tf-chip { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); border-radius: var(--r-pill); padding: 6px 13px; font-weight: 500; font-size: 13px; }
+.tf-chip.off { opacity: .42; }
+.tf-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+
+.tcal-wrap { overflow-x: auto; }
+.tcal { background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--shadow-sm); }
+.tcal-head { display: flex; position: sticky; top: 0; z-index: 4; }
+.tcal-corner { width: 64px; flex: none; background: var(--surface-2); border-right: 1px solid var(--line-soft); }
+.tcal-th { flex: 1; min-width: 160px; padding: 12px 10px; text-align: center; color: #fff; font-weight: 600; font-size: 14px; border-left: 2px solid rgba(255,255,255,.25); letter-spacing: .2px; }
+.tcal-body { display: flex; }
+.tcal-gutter { width: 64px; flex: none; background: var(--surface-2); }
+.tcal-time { font-size: 11px; color: var(--muted); text-align: right; padding-right: 8px; transform: translateY(-7px); }
+.tcal-col { flex: 1; min-width: 160px; position: relative; border-left: 1px solid var(--line-soft); }
+.tcal-slot { border-bottom: 1px solid var(--line-soft); }
+.tcal-slot.hour { border-bottom-color: var(--line); }
+.tcal-appt { position: absolute; left: 4px; right: 4px; border: none; border-radius: 9px; padding: 6px 9px; color: #fff; text-align: left; overflow: hidden; box-shadow: var(--shadow-sm); transition: filter .12s, transform .1s; }
+.tcal-appt:hover { filter: brightness(1.06); }
+.tcal-appt:active { transform: scale(.995); }
+.tcal-appt .ta-time { font-size: 11px; opacity: .92; }
+.tcal-appt .ta-name { font-weight: 600; font-size: 12.5px; line-height: 1.25; margin-top: 1px; }
+@media (max-width: 680px) { .cal-date { min-width: 0; font-size: 13.5px; } }
