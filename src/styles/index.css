@@ -624,7 +624,11 @@ textarea.input { resize: vertical; min-height: 84px; }
 .tcal-appt .ta-time { font-size: 11px; opacity: .92; }
 .tcal-appt .ta-name { font-weight: 600; font-size: 12.5px; line-height: 1.25; margin-top: 1px; }
 @media (max-width: 680px) { .cal-date { min-width: 0; font-size: 13.5px; } }
-.tcal-appt { cursor: grab; }
+.tcal-appt { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
 .tcal-appt:active { cursor: grabbing; }
-.tcal.dragging .tcal-appt { pointer-events: none; }
-.tcal.dragging .tcal-col { background: var(--sage-tint); }
+.tcal-appt.dragging { opacity: .3 !important; }
+.tcal-col.drop-target { background: var(--sage-tint); }
+.tcal-th.target { filter: brightness(1.12); box-shadow: inset 0 -3px 0 rgba(255,255,255,.55); }
+.tcal-ghost { position: fixed; z-index: 130; border-radius: 9px; padding: 6px 9px; color: #fff; box-shadow: var(--shadow-lg); pointer-events: none; opacity: .92; overflow: hidden; }
+.tcal-ghost .ta-time { font-size: 11px; opacity: .92; }
+.tcal-ghost .ta-name { font-weight: 600; font-size: 12.5px; margin-top: 1px; }

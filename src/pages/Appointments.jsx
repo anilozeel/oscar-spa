@@ -132,65 +132,92 @@ function Tags({ a }) {
   )
 }
 
-// ---- Terapist sütunlu günlük takvim (sürükle-bırak) -------------------------
+// ---- Terapist sütunlu günlük takvim (pointer tabanlı sürükle-bırak) ---------
 function DayCalendar({ appts, therapists, onPick, onReschedule, empty }) {
   const cols = [...therapists.map((t) => ({ id: t.id, name: t.name, color: t.color }))]
   const hasNone = appts.some((a) => !a.therapistId)
   if (hasNone) cols.push({ id: 'none', name: 'Terapistsiz / Hamam', color: '#b8935a' })
   const bodyH = DAY_END - DAY_START
 
-  const dragRef = useRef(null)         // { id, offsetY }
-  const justDragged = useRef(false)
-  const [dragging, setDragging] = useState(false)
+  const colEls = useRef([])        // sütun DOM referansları
+  const startRef = useRef(null)    // aktif sürükleme başlangıç bilgisi
+  const [drag, setDrag] = useState(null) // { id, x, y, w, appt, colIndex }
 
-  const onDrop = (e, colId) => {
-    e.preventDefault()
-    const id = e.dataTransfer.getData('text/plain'); if (!id) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const offY = dragRef.current?.offsetY || 0
-    const y = e.clientY - rect.top - offY
-    const min = DAY_START + Math.round(y / 15) * 15
-    onReschedule(id, colId, min)
+  const colIndexAtX = (x) => {
+    for (let i = 0; i < colEls.current.length; i++) {
+      const el = colEls.current[i]; if (!el) continue
+      const r = el.getBoundingClientRect()
+      if (x >= r.left && x < r.right) return i
+    }
+    return -1
   }
+  const topToMin = (topY, colIdx) => {
+    const el = colEls.current[colIdx] ?? colEls.current[0]
+    if (!el) return DAY_START
+    const r = el.getBoundingClientRect()
+    return DAY_START + Math.round((topY - r.top) / 15) * 15
+  }
+
+  const onPointerDown = (e, a, colIndex) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    const r = e.currentTarget.getBoundingClientRect()
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    startRef.current = {
+      id: a.id, appt: a, colIndex,
+      startX: e.clientX, startY: e.clientY,
+      offX: e.clientX - r.left, offY: e.clientY - r.top, w: r.width, moved: false,
+    }
+  }
+  const onPointerMove = (e) => {
+    const s = startRef.current; if (!s) return
+    if (!s.moved) {
+      if (Math.abs(e.clientX - s.startX) < 4 && Math.abs(e.clientY - s.startY) < 4) return
+      s.moved = true
+    }
+    setDrag({ id: s.id, appt: s.appt, w: s.w, x: e.clientX - s.offX, y: e.clientY - s.offY, colIndex: colIndexAtX(e.clientX) })
+  }
+  const onPointerUp = (e) => {
+    const s = startRef.current; if (!s) return
+    e.currentTarget.releasePointerCapture?.(e.pointerId)
+    const moved = s.moved
+    if (!moved) { startRef.current = null; setDrag(null); onPick(s.appt); return }
+    let colIdx = colIndexAtX(e.clientX); if (colIdx < 0) colIdx = s.colIndex
+    const min = topToMin(e.clientY - s.offY, colIdx)
+    startRef.current = null; setDrag(null)
+    onReschedule(s.id, cols[colIdx].id, min)
+  }
+  const onPointerCancel = () => { startRef.current = null; setDrag(null) }
 
   return (
     <div className="tcal-wrap section-gap">
-      <div className={`tcal ${dragging ? 'dragging' : ''}`} style={{ minWidth: 120 + cols.length * 180 }}>
-        {/* Başlıklar */}
+      <div className="tcal" style={{ minWidth: 120 + cols.length * 180 }}>
         <div className="tcal-head">
           <div className="tcal-corner" />
-          {cols.map((c) => (
-            <div key={c.id} className="tcal-th" style={{ background: c.color }}>{c.name}</div>
+          {cols.map((c, ci) => (
+            <div key={c.id} className={`tcal-th ${drag && drag.colIndex === ci ? 'target' : ''}`} style={{ background: c.color }}>{c.name}</div>
           ))}
         </div>
-        {/* Gövde */}
         <div className="tcal-body">
           <div className="tcal-gutter" style={{ height: bodyH }}>
             {GRID.map((g) => (
               <div key={g.min} className="tcal-time" style={{ height: 30 }}>{g.hour ? g.label : ''}</div>
             ))}
           </div>
-          {cols.map((c) => {
+          {cols.map((c, ci) => {
             const list = appts.filter((a) => (c.id === 'none' ? !a.therapistId : a.therapistId === c.id))
             return (
-              <div key={c.id} className="tcal-col" style={{ height: bodyH }}
-                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
-                onDrop={(e) => onDrop(e, c.id)}>
+              <div key={c.id} ref={(el) => (colEls.current[ci] = el)}
+                className={`tcal-col ${drag && drag.colIndex === ci ? 'drop-target' : ''}`} style={{ height: bodyH }}>
                 {GRID.map((g) => <div key={g.min} className={`tcal-slot ${g.hour ? 'hour' : ''}`} style={{ height: 30 }} />)}
                 {list.map((a) => {
                   const top = (toMin(a.time) - DAY_START) * PXPM
                   const h = Math.max((toMin(a.end) - toMin(a.time)) * PXPM, 26)
                   return (
-                    <button key={a.id} className="tcal-appt" draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('text/plain', a.id)
-                        e.dataTransfer.effectAllowed = 'move'
-                        const r = e.currentTarget.getBoundingClientRect()
-                        dragRef.current = { id: a.id, offsetY: e.clientY - r.top }
-                        setDragging(true)
-                      }}
-                      onDragEnd={() => { setDragging(false); justDragged.current = true; setTimeout(() => { justDragged.current = false }, 180) }}
-                      onClick={() => { if (justDragged.current) return; onPick(a) }}
+                    <button key={a.id} className={`tcal-appt ${drag?.id === a.id ? 'dragging' : ''}`}
+                      onPointerDown={(e) => onPointerDown(e, a, ci)}
+                      onPointerMove={onPointerMove}
+                      onPointerUp={onPointerUp}
+                      onPointerCancel={onPointerCancel}
                       style={{ top, height: h, background: c.color, opacity: a.status === 'done' ? 0.55 : 1 }}>
                       <div className="ta-time">{a.time} – {a.end}</div>
                       <div className="ta-name">{a.guest} · {a.service}{a.variant === 'package' ? ' (PAKET)' : ''}</div>
@@ -202,6 +229,18 @@ function DayCalendar({ appts, therapists, onPick, onReschedule, empty }) {
           })}
         </div>
       </div>
+
+      {/* Sürüklenen kopya (hayalet) — hedef terapistin rengini alır */}
+      {drag && drag.moved !== false && (
+        <div className="tcal-ghost" style={{
+          left: drag.x, top: drag.y, width: drag.w,
+          background: cols[drag.colIndex >= 0 ? drag.colIndex : 0]?.color || '#2c4a38',
+        }}>
+          <div className="ta-time">{drag.appt.time} – {drag.appt.end}</div>
+          <div className="ta-name">{drag.appt.guest} · {drag.appt.service}</div>
+        </div>
+      )}
+
       {empty && <div className="empty" style={{ padding: 24 }}>Bu güne ait randevu yok. <b>Bugün</b>’e dönün veya yeni randevu ekleyin.</div>}
     </div>
   )
