@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar.jsx'
 import Topbar from './Topbar.jsx'
+import BottomNav from './BottomNav.jsx'
 import { useStore } from '../state/store.jsx'
 import Icon from './icons.jsx'
 
@@ -28,6 +29,7 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+      <BottomNav />
       <Toasts />
     </div>
   )

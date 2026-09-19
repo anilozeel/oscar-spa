@@ -16,3 +16,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </HashRouter>
   </React.StrictMode>,
 )
+
+// PWA: service worker kaydı (ağ öncelikli — çevrimdışı destek + "ana ekrana ekle")
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {})
+  })
+}
