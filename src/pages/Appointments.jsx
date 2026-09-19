@@ -30,6 +30,7 @@ export default function Appointments() {
   const isTherapist = user?.role === 'therapist'
   const myId = user?.therapistId
   const [open, setOpen] = useState(false)
+  const [prefill, setPrefill] = useState(null)
   const [detail, setDetail] = useState(null)
   const [view, setView] = useState('day')
   const [offset, setOffset] = useState(0)
@@ -63,6 +64,12 @@ export default function Appointments() {
     updateAppointment(id, patch)
   }
 
+  // Boş saate tıklayınca: o terapist + saat için yeni randevu
+  const openNew = (colId, min) => {
+    setPrefill({ therapistId: colId === 'none' ? null : colId, time: fmtMin(min) })
+    setOpen(true)
+  }
+
   return (
     <div className="page">
       <PageHead
@@ -74,7 +81,7 @@ export default function Appointments() {
               <button className={view === 'day' ? 'on' : ''} onClick={() => setView('day')}>Günlük görünüm</button>
               <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>Liste</button>
             </div>
-            {!isTherapist && <Button icon="plus" onClick={() => setOpen(true)}>Yeni Randevu</Button>}
+            {!isTherapist && <Button icon="plus" onClick={() => { setPrefill(null); setOpen(true) }}>Yeni Randevu</Button>}
           </div>
         }
       />
@@ -99,7 +106,7 @@ export default function Appointments() {
       </div>
 
       {view === 'day' ? (
-        <DayCalendar appts={dayAppts} therapists={calTherapists} onPick={setDetail} onReschedule={onReschedule} canEdit={!isTherapist} empty={offset !== 0} />
+        <DayCalendar appts={dayAppts} therapists={calTherapists} onPick={setDetail} onReschedule={onReschedule} onNewAt={openNew} canEdit={!isTherapist} empty={offset !== 0} />
       ) : (
         <Panel className="section-gap" title={dateLabel}>
           <table className="table">
@@ -130,7 +137,7 @@ export default function Appointments() {
         </Helper>
       </div>
 
-      {open && !isTherapist && <NewAppointment store={store} onClose={() => setOpen(false)} />}
+      {open && !isTherapist && <NewAppointment store={store} prefill={prefill} onClose={() => { setOpen(false); setPrefill(null) }} />}
       {detail && (isTherapist
         ? <ApptView appt={detail} store={store} onClose={() => setDetail(null)} />
         : <EditAppt appt={detail} store={store} onClose={() => setDetail(null)} />)}
@@ -149,7 +156,7 @@ function Tags({ a }) {
 }
 
 // ---- Terapist sütunlu günlük takvim (pointer tabanlı sürükle-bırak) ---------
-function DayCalendar({ appts, therapists, onPick, onReschedule, canEdit = true, empty }) {
+function DayCalendar({ appts, therapists, onPick, onReschedule, onNewAt, canEdit = true, empty }) {
   const cols = [...therapists.map((t) => ({ id: t.id, name: t.name, color: t.color }))]
   const hasNone = appts.some((a) => !a.therapistId)
   if (hasNone) cols.push({ id: 'none', name: 'Terapistsiz / Hamam', color: '#b8935a' })
@@ -223,7 +230,15 @@ function DayCalendar({ appts, therapists, onPick, onReschedule, canEdit = true, 
             const list = appts.filter((a) => (c.id === 'none' ? !a.therapistId : a.therapistId === c.id))
             return (
               <div key={c.id} ref={(el) => (colEls.current[ci] = el)}
-                className={`tcal-col ${drag && drag.colIndex === ci ? 'drop-target' : ''}`} style={{ height: bodyH }}>
+                className={`tcal-col ${drag && drag.colIndex === ci ? 'drop-target' : ''} ${canEdit && onNewAt ? 'bookable' : ''}`}
+                style={{ height: bodyH }}
+                onClick={canEdit && onNewAt ? (e) => {
+                  if (e.target.closest('.tcal-appt')) return
+                  const r = e.currentTarget.getBoundingClientRect()
+                  let min = DAY_START + Math.round((e.clientY - r.top) / 30) * 30
+                  min = Math.max(DAY_START, Math.min(min, 20 * 60))
+                  onNewAt(c.id, min)
+                } : undefined}>
                 {GRID.map((g) => <div key={g.min} className={`tcal-slot ${g.hour ? 'hour' : ''}`} style={{ height: 30 }} />)}
                 {list.map((a) => {
                   const top = (toMin(a.time) - DAY_START) * PXPM
@@ -388,14 +403,14 @@ function EditAppt({ appt, store, onClose }) {
 }
 
 // ---- Yeni randevu akışı ------------------------------------------------------
-function NewAppointment({ store, onClose }) {
+function NewAppointment({ store, prefill, onClose }) {
   const { services, therapists, rooms, guests, fmtTRY, addAppointment, findConflict,
           ROOM_TYPE_LABEL, UNDECIDED_SERVICE, PACKAGE_DURATION, PACKAGE_INFO } = store
   const [step, setStep] = useState(0)
   const [svc, setSvc] = useState(null)
   const [variant, setVariant] = useState('solo')
-  const [time, setTime] = useState('15:00')
-  const [therapistId, setTherapistId] = useState(null)
+  const [time, setTime] = useState(prefill?.time || '15:00')
+  const [therapistId, setTherapistId] = useState(prefill?.therapistId || null)
   const [roomId, setRoomId] = useState(null)
   const [guestName, setGuestName] = useState('')
 
@@ -425,7 +440,7 @@ function NewAppointment({ store, onClose }) {
 
   const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1))
   const back = () => setStep((s) => Math.max(0, s - 1))
-  const pickService = (s) => { setSvc(s); setVariant('solo'); setTherapistId(null); setRoomId(null) }
+  const pickService = (s) => { setSvc(s); setVariant('solo'); setTherapistId(prefill?.therapistId || null); setRoomId(null) }
 
   const confirm = () => {
     const ok = addAppointment({
