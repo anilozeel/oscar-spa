@@ -4,7 +4,7 @@ import { PageHead, Panel, Progress, Badge, Button, Stat, Modal } from '../compon
 import Icon from '../components/icons.jsx'
 
 export default function Packages() {
-  const { packages, guests, fmtTRY, addPackage } = useStore()
+  const { packages, fmtTRY, addPackage } = useStore()
   const [add, setAdd] = useState(false)
   const totalValue = packages.reduce((s, p) => s + p.price, 0)
   const active = packages.filter((p) => p.used < p.total).length
@@ -50,7 +50,7 @@ export default function Packages() {
         })}
       </div>
 
-      {add && <NewPackage onClose={() => setAdd(false)} addPackage={addPackage} guests={guests} fmtTRY={fmtTRY} />}
+      {add && <NewPackage onClose={() => setAdd(false)} addPackage={addPackage} fmtTRY={fmtTRY} />}
     </div>
   )
 }
@@ -61,17 +61,16 @@ const TEMPLATES = [
   { name: 'Wellness Premium', total: 12, price: 21000 },
 ]
 
-function NewPackage({ onClose, addPackage, guests, fmtTRY }) {
-  const [f, setF] = useState({ name: '', guestId: guests[0].id, total: 10, price: 16000, expiry: '31.12.2026' })
+function NewPackage({ onClose, addPackage, fmtTRY }) {
+  const [f, setF] = useState({ name: '', guestName: '', total: 10, price: 16000, expiry: '31.12.2026' })
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }))
-  const valid = f.name.trim() && Number(f.total) > 0 && Number(f.price) >= 0
+  const valid = f.name.trim() && f.guestName.trim() && Number(f.total) > 0 && Number(f.price) >= 0
 
   const applyTemplate = (t) => setF((s) => ({ ...s, name: t.name, total: t.total, price: t.price }))
 
   const save = () => {
-    const g = guests.find((x) => x.id === f.guestId)
     addPackage({
-      name: f.name.trim(), guestId: f.guestId, guest: g?.name,
+      name: f.name.trim(), guestId: null, guest: f.guestName.trim(),
       total: Number(f.total), price: Number(f.price), expiry: f.expiry,
     })
     onClose()
@@ -96,10 +95,8 @@ function NewPackage({ onClose, addPackage, guests, fmtTRY }) {
         <input className="input" autoFocus value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="Örn. 10 Seans Masaj Paketi" />
       </div>
       <div className="field" style={{ marginBottom: 14 }}>
-        <label>Misafir</label>
-        <select className="select" value={f.guestId} onChange={(e) => set('guestId', e.target.value)}>
-          {guests.map((g) => <option key={g.id} value={g.id}>{g.name} · Oda {g.roomNo}</option>)}
-        </select>
+        <label>Misafir adı</label>
+        <input className="input" value={f.guestName} onChange={(e) => set('guestName', e.target.value)} placeholder="Örn. Ahmet Yılmaz" />
       </div>
       <div className="grid g-3" style={{ gap: 12 }}>
         <div className="field">

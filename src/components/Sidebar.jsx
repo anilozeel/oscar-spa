@@ -43,7 +43,6 @@ export default function Sidebar() {
                 onClick={() => setSidebarOpen(false)}
               >
                 <I /> <span>{item.label}</span>
-                {item.key === 'inventory' && <span className="nav-badge">2</span>}
               </NavLink>
             )
           })}

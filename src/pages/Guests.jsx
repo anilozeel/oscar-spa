@@ -15,11 +15,22 @@ const AUTOMATIONS = [
 export default function Guests() {
   const { guests, fmtTRY, appointments } = useStore()
   const nav = useNavigate()
-  const [sel, setSel] = useState(guests[0].id)
+  const [sel, setSel] = useState(guests[0]?.id || null)
   const [q, setQ] = useState('')
   const g = guests.find((x) => x.id === sel)
   const list = guests.filter((x) => x.name.toLowerCase().includes(q.toLowerCase()))
   const history = appointments.filter((a) => a.guestId === sel)
+
+  if (!guests.length) {
+    return (
+      <div className="page">
+        <PageHead title="Misafir CRM ve Deneyim" sub="Spa deneyimini kişiselleştirmek için her misafirin tercihleri ve geçmişi saklanmalı." />
+        <Panel title="Misafirler">
+          <div className="empty"><Icon.guests /><div>Henüz misafir kaydı yok.<br />Yeni misafirler eklendikçe burada listelenecek.</div></div>
+        </Panel>
+      </div>
+    )
+  }
 
   return (
     <div className="page">

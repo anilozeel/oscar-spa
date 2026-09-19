@@ -297,7 +297,7 @@ function EditAppt({ appt, store, onClose }) {
   const [dur, setDur] = useState(toMin(appt.end) - toMin(appt.time))
   const [therapistId, setTherapistId] = useState(appt.therapistId || '')
   const [roomId, setRoomId] = useState(appt.roomId || '')
-  const [guestId, setGuestId] = useState(appt.guestId || guests[0].id)
+  const [guestName, setGuestName] = useState(appt.guest || '')
   const [price, setPrice] = useState(appt.price || 0)
   const [status, setStatus] = useState(appt.status)
 
@@ -307,12 +307,11 @@ function EditAppt({ appt, store, onClose }) {
   const save = () => {
     const t = therapists.find((x) => x.id === therapistId)
     const r = rooms.find((x) => x.id === roomId)
-    const g = guests.find((x) => x.id === guestId)
     const ok = updateAppointment(appt.id, {
       time, end,
       therapistId: therapistId || null, therapist: t?.name || null,
       roomId: roomId || null, room: r?.name || appt.room,
-      guestId, guest: g?.name || appt.guest,
+      guestId: appt.guestId || null, guest: guestName.trim() || appt.guest,
       price: Number(price), status,
     })
     if (ok) onClose()
@@ -361,10 +360,8 @@ function EditAppt({ appt, store, onClose }) {
 
       <div className="grid g-2" style={{ gap: 14, marginTop: 14 }}>
         <div className="field">
-          <label>Misafir</label>
-          <select className="select" value={guestId} onChange={(e) => setGuestId(e.target.value)}>
-            {guests.map((g) => <option key={g.id} value={g.id}>{g.name} · Oda {g.roomNo}</option>)}
-          </select>
+          <label>Misafir adı</label>
+          <input className="input" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Misafir adı" />
         </div>
         <div className="field">
           <label>Fiyat (₺)</label>
@@ -400,7 +397,7 @@ function NewAppointment({ store, onClose }) {
   const [time, setTime] = useState('15:00')
   const [therapistId, setTherapistId] = useState(null)
   const [roomId, setRoomId] = useState(null)
-  const [guestId, setGuestId] = useState(guests[0].id)
+  const [guestName, setGuestName] = useState('')
 
   const isFree = !!svc?.free
   const isUndecided = !!svc?.undecided
@@ -423,7 +420,6 @@ function NewAppointment({ store, onClose }) {
     ? ['Hizmet', 'Süre & Saat', 'Oda', 'Onay']
     : ['Hizmet', 'Süre & Saat', 'Terapist', 'Oda', 'Onay']
 
-  const guest = guests.find((g) => g.id === guestId)
   const therapist = therapists.find((t) => t.id === therapistId)
   const room = rooms.find((r) => r.id === roomId)
 
@@ -437,7 +433,7 @@ function NewAppointment({ store, onClose }) {
       variant: svc.hasPackage ? variant : null, commissionType,
       therapistId: isFree ? null : therapistId,
       therapist: isFree ? null : therapist?.name,
-      roomId, room: room?.name, guestId, guest: guest?.name,
+      roomId, room: room?.name, guestId: null, guest: guestName.trim(),
       price, status: 'booked', pay: null, freeHammam: isFree, undecided: isUndecided,
     })
     if (ok) onClose()
@@ -457,7 +453,7 @@ function NewAppointment({ store, onClose }) {
           {step > 0 && <Button variant="ghost" onClick={back}>Geri</Button>}
           {realStep !== 'Onay'
             ? <Button icon="chevronR" disabled={!canNext} onClick={next}>Devam</Button>
-            : <Button icon="check" onClick={confirm}>Randevuyu Oluştur</Button>}
+            : <Button icon="check" disabled={!guestName.trim()} onClick={confirm}>Randevuyu Oluştur</Button>}
         </>
       }>
       <div className="steps">
@@ -557,17 +553,15 @@ function NewAppointment({ store, onClose }) {
       {realStep === 'Onay' && (
         <div>
           <div className="field" style={{ marginBottom: 16 }}>
-            <label>Misafir</label>
-            <select className="select" value={guestId} onChange={(e) => setGuestId(e.target.value)}>
-              {guests.map((g) => <option key={g.id} value={g.id}>{g.name} · Oda {g.roomNo}</option>)}
-            </select>
+            <label>Misafir adı</label>
+            <input className="input" autoFocus value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Örn. Ahmet Yılmaz" />
           </div>
           <div className="card" style={{ background: 'var(--surface-2)' }}>
             <div className="kv"><span className="k">Hizmet</span><span className="v">{isUndecided ? 'Girişte belirlenecek' : svc.name}{isPackage ? ' · Paket' : (svc.hasPackage ? ' · Sadece Masaj' : '')}</span></div>
             <div className="kv"><span className="k">Saat</span><span className="v">{time}–{end} ({duration} dk)</span></div>
             <div className="kv"><span className="k">Terapist</span><span className="v">{isFree ? 'Terapistsiz (ücretsiz hamam)' : therapist?.name}</span></div>
             <div className="kv"><span className="k">Oda</span><span className="v">{room?.name}</span></div>
-            <div className="kv"><span className="k">Misafir</span><span className="v">{guest?.name}</span></div>
+            <div className="kv"><span className="k">Misafir</span><span className="v">{guestName || '—'}</span></div>
             <div className="kv"><span className="k">Tutar</span><span className="v money">{isUndecided ? 'Girişte belirlenecek' : (price ? fmtTRY(price) : '₺0')}</span></div>
           </div>
         </div>
