@@ -7,13 +7,13 @@ const NAV = [
   { section: 'Operasyon' },
   { key: 'dashboard',    to: '/',            label: 'Dashboard',   icon: 'dashboard' },
   { key: 'appointments', to: '/randevular',  label: 'Randevular',  icon: 'calendar' },
+  { key: 'mycommissions', to: '/primlerim',  label: 'Primlerim',   icon: 'finance', roles: ['therapist'] },
   { key: 'guests',       to: '/misafirler',  label: 'Misafirler',  icon: 'guests' },
   { key: 'therapists',   to: '/terapistler', label: 'Terapistler', icon: 'therapist' },
   { section: 'Satış & Ürün' },
   { key: 'services',     to: '/hizmetler',   label: 'Hizmetler',   icon: 'leaf' },
   { key: 'packages',     to: '/paketler',    label: 'Paket & Üyelik', icon: 'package' },
   { key: 'sales',        to: '/satis',       label: 'Satış & POS', icon: 'pos' },
-  { key: 'inventory',    to: '/stok',        label: 'Stok',        icon: 'stock' },
   { section: 'Yönetim' },
   { key: 'finance',      to: '/finans',      label: 'Finans',      icon: 'finance' },
   { key: 'reports',      to: '/raporlar',    label: 'Raporlama',   icon: 'report' },
@@ -32,6 +32,7 @@ export default function Sidebar() {
           {NAV.map((item, i) => {
             if (item.section) return <div key={i} className="nav-section">{item.section}</div>
             if (!canAccess(item.key)) return null
+            if (item.roles && !item.roles.includes(user?.role)) return null
             const I = Icon[item.icon]
             return (
               <NavLink

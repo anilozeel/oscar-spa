@@ -4,12 +4,12 @@ import Layout from './components/Layout.jsx'
 import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Appointments from './pages/Appointments.jsx'
+import MyCommissions from './pages/MyCommissions.jsx'
 import Guests from './pages/Guests.jsx'
 import Therapists from './pages/Therapists.jsx'
 import Services from './pages/Services.jsx'
 import Packages from './pages/Packages.jsx'
 import Sales from './pages/Sales.jsx'
-import Inventory from './pages/Inventory.jsx'
 import Finance from './pages/Finance.jsx'
 import Reports from './pages/Reports.jsx'
 import Settings from './pages/Settings.jsx'
@@ -29,12 +29,12 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/randevular" element={<Guarded k="appointments"><Appointments /></Guarded>} />
+        <Route path="/primlerim" element={<Guarded k="mycommissions"><MyCommissions /></Guarded>} />
         <Route path="/misafirler" element={<Guarded k="guests"><Guests /></Guarded>} />
         <Route path="/terapistler" element={<Guarded k="therapists"><Therapists /></Guarded>} />
         <Route path="/hizmetler" element={<Guarded k="services"><Services /></Guarded>} />
         <Route path="/paketler" element={<Guarded k="packages"><Packages /></Guarded>} />
         <Route path="/satis" element={<Guarded k="sales"><Sales /></Guarded>} />
-        <Route path="/stok" element={<Guarded k="inventory"><Inventory /></Guarded>} />
         <Route path="/finans" element={<Guarded k="finance"><Finance /></Guarded>} />
         <Route path="/raporlar" element={<Guarded k="reports"><Reports /></Guarded>} />
         <Route path="/ayarlar" element={<Guarded k="settings"><Settings /></Guarded>} />

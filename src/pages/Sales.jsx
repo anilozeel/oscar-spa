@@ -81,6 +81,7 @@ function Adisyon({ appt, store, onClose }) {
   const [therapistId, setTherapistId] = useState(appt.therapistId || therapists[0].id)
   const [pay, setPay] = useState(null)
   const [hideAfter, setHideAfter] = useState(false)
+  const [roomNo, setRoomNo] = useState('')
   // Girişte karar verilen randevu için hizmet seçimi
   const sellable = services.filter((s) => !s.free && !s.undecided)
   const [pickId, setPickId] = useState('')
@@ -104,12 +105,13 @@ function Adisyon({ appt, store, onClose }) {
   const therapist = therapists.find((t) => t.id === therapistId)
   const changed = !isFree && appt.therapistId && appt.therapistId !== therapistId
 
-  const canFinish = !!pay && (!isUndecided || !!chosen) && (pay !== 'package' || !!activePkg)
+  const canFinish = !!pay && (!isUndecided || !!chosen) && (pay !== 'package' || !!activePkg) && (pay !== 'folio' || !!roomNo.trim())
 
   const finish = () => {
     closeTicket(appt, {
       therapistId, payType: pay, hideAfter,
       packageId: pay === 'package' ? activePkg?.id : undefined,
+      roomNo: pay === 'folio' ? roomNo.trim() : undefined,
       override: isUndecided ? { serviceName, price: amount, commissionType: effType } : undefined,
     })
     onClose()
@@ -200,6 +202,14 @@ function Adisyon({ appt, store, onClose }) {
         {activePkg
           ? <p className="muted small" style={{ marginTop: 8 }}>Paket: <b>{activePkg.name}</b> · kalan {activePkg.total - activePkg.used} seans{pay === 'package' ? ' — bu işlemde 1 seans düşülecek' : ''}</p>
           : <p className="small" style={{ marginTop: 8, color: 'var(--gold-deep)' }}>Bu misafirin aktif paketi bulunmuyor.</p>}
+
+        {pay === 'folio' && (
+          <div className="field" style={{ marginTop: 12 }}>
+            <label>Oda numarası <span style={{ color: 'var(--danger)' }}>*</span></label>
+            <input className="input" value={roomNo} autoFocus onChange={(e) => setRoomNo(e.target.value)} placeholder="Örn. 216" />
+            <p className="muted small" style={{ marginTop: 6 }}>Tutar bu oda folyosuna yazılacak.</p>
+          </div>
+        )}
       </div>
 
       {/* Toplam */}

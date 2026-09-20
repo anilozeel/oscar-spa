@@ -20,6 +20,7 @@ export function StoreProvider({ children }) {
   const [inventory, setInventory] = useState(mock.inventory)
   const [services, setServices] = useState(mock.services)
   const [packages, setPackages] = useState(mock.packages)
+  const [guests, setGuests] = useState(mock.guests)
   const [sales, setSales] = useState([])            // kapatılan adisyonlar (arşiv)
   const [commissions, setCommissions] = useState([]) // ödeme anında yazılan primler
   const [hiddenAppts, setHiddenAppts] = useState([]) // takvimden gizlenen (arşivde kalır)
@@ -76,24 +77,50 @@ export function StoreProvider({ children }) {
     return null
   }, [appointments, rooms])
 
+  // --- Misafir (CRM) yardımcıları ------------------------------------------
+  const normPhone = (p) => String(p || '').replace(/\D/g, '')
+  const findOrCreateGuest = useCallback(({ name, phone }) => {
+    const nm = String(name || '').trim()
+    if (!nm) return null
+    const ph = normPhone(phone)
+    const existing = guests.find((g) => (ph && normPhone(g.phone) === ph) || g.name.toLowerCase() === nm.toLowerCase())
+    if (existing) return existing
+    const g = {
+      id: 'g_' + uid(), name: nm, phone: String(phone || '').trim(),
+      initials: nm.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase(),
+      vip: false, notes: '', prefs: [],
+    }
+    setGuests((l) => [g, ...l])
+    return g
+  }, [guests])
+  const addGuest = useCallback((data) => {
+    const nm = String(data.name || '').trim()
+    if (!nm) return null
+    const g = {
+      id: 'g_' + uid(), name: nm, phone: String(data.phone || '').trim(),
+      initials: nm.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase(),
+      vip: !!data.vip, notes: data.notes || '', prefs: data.prefs || [],
+    }
+    setGuests((l) => [g, ...l])
+    toast('Misafir kaydedildi: ' + nm)
+    return g
+  }, [toast])
+
   const addAppointment = useCallback((draft) => {
     const conflict = findConflict(draft)
     if (conflict) {
-      toast(
-        conflict.type === 'therapist'
-          ? `${conflict.name} bu saatte dolu — çakışma engellendi`
-          : `${conflict.name} bu saatte dolu — çakışma engellendi`,
-        'warn'
-      )
+      toast(`${conflict.name} bu saatte dolu — çakışma engellendi`, 'warn')
       return false
     }
-    setAppointments((list) => [...list, { ...draft, id: uid() }])
+    // misafiri CRM'e bağla (yoksa oluştur)
+    const g = draft.guest ? findOrCreateGuest({ name: draft.guest, phone: draft.phone }) : null
+    setAppointments((list) => [...list, { ...draft, id: uid(), guestId: draft.guestId || g?.id || null }])
     toast('Randevu oluşturuldu')
     if (draft.therapistId && !draft.freeHammam) {
       notifyAssignment({ therapist: draft.therapist, service: draft.service, time: draft.time, guest: draft.guest })
     }
     return true
-  }, [findConflict, toast])
+  }, [findConflict, toast, findOrCreateGuest])
 
   const cancelAppointment = useCallback((id) => {
     setAppointments((l) => l.filter((a) => a.id !== id))
@@ -113,13 +140,18 @@ export function StoreProvider({ children }) {
       toast(`${conflict.name} bu saatte dolu — çakışma engellendi`, 'warn')
       return false
     }
-    setAppointments((l) => l.map((a) => (a.id === id ? { ...a, ...patch } : a)))
+    let finalPatch = patch
+    if (patch.guest) {
+      const g = findOrCreateGuest({ name: patch.guest, phone: patch.phone ?? cur.phone })
+      if (g) finalPatch = { ...patch, guestId: patch.guestId || g.id }
+    }
+    setAppointments((l) => l.map((a) => (a.id === id ? { ...a, ...finalPatch } : a)))
     if (!opts.silent) toast('Randevu güncellendi')
     if (patch.therapistId && patch.therapistId !== cur.therapistId) {
       notifyAssignment({ therapist: draft.therapist, service: draft.service, time: draft.time, guest: draft.guest })
     }
     return true
-  }, [appointments, findConflict, toast])
+  }, [appointments, findConflict, toast, findOrCreateGuest])
 
   // --- Paket yardımcıları ---------------------------------------------------
   const activePackageFor = useCallback(
@@ -134,7 +166,7 @@ export function StoreProvider({ children }) {
   // override: girişte karar verilen randevularda seçilen gerçek hizmet
   //           { serviceName, price, commissionType }
   // payType 'package' -> tutar 0, misafirin paketinden 1 seans düşülür
-  const closeTicket = useCallback((appt, { therapistId, payType, hideAfter, override, packageId }) => {
+  const closeTicket = useCallback((appt, { therapistId, payType, hideAfter, override, packageId, roomNo }) => {
     const service = mock.services.find((s) => s.id === appt.serviceId)
     // etkin prim tipi: adisyonda seçilen > randevuda kayıtlı > hizmet tanımı
     const effType = override?.commissionType ?? appt.commissionType ?? service?.commissionType
@@ -147,7 +179,7 @@ export function StoreProvider({ children }) {
 
     const sale = {
       id: uid(), no: 'SP-' + Math.floor(1000 + Math.random() * 9000),
-      apptId: appt.id, guest: appt.guest, roomNo: '',
+      apptId: appt.id, guest: appt.guest, roomNo: roomNo || '',
       service: serviceName, amount,
       therapist: isFree ? '—' : (therapist?.name || appt.therapist || '—'),
       therapistId: isFree ? null : therapistId,
@@ -214,6 +246,7 @@ export function StoreProvider({ children }) {
     inventory, adjustStock, addInventory,
     services, addService,
     packages, addPackage, activePackageFor,
+    guests, addGuest,
     sales, commissions,
     toast, toasts,
     sidebarOpen, setSidebarOpen,

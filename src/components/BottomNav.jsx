@@ -9,6 +9,7 @@ const ITEMS = [
   { key: 'sales', to: '/satis', label: 'Satış', icon: 'pos' },
   { key: 'guests', to: '/misafirler', label: 'Misafir', icon: 'guests' },
   { key: 'finance', to: '/finans', label: 'Finans', icon: 'finance' },
+  { key: 'mycommissions', to: '/primlerim', label: 'Primler', icon: 'finance' },
 ]
 
 export default function BottomNav() {
