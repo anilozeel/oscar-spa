@@ -13,9 +13,9 @@ const greet = () => {
 
 const MODULES = [
   { to: '/randevular', icon: 'calendar', t: 'Randevu Takvimi', s: 'Saatlik planlama' },
-  { to: '/spa-floor', icon: 'floor', t: 'Spa Floor', s: 'Oda & kabin doluluk' },
   { to: '/misafirler', icon: 'guests', t: 'Misafir CRM', s: 'Geçmiş & tercihler' },
   { to: '/satis', icon: 'pos', t: 'Satış & POS', s: 'Ödeme & adisyon' },
+  { to: '/raporlar', icon: 'report', t: 'Raporlama', s: 'Ciro & performans' },
 ]
 
 function DateChip() {
@@ -27,33 +27,12 @@ function DateChip() {
   )
 }
 
-function FloorPanel({ rooms, STATUS_META, nav }) {
-  return (
-    <Panel title="Spa Floor"
-      action={<a className="link-more" onClick={() => nav('/spa-floor')}>Tümünü Gör <Icon.chevronR /></a>}>
-      <div className="legend" style={{ marginBottom: 16, gap: 16 }}>
-        {Object.entries(STATUS_META).slice(0, 4).map(([k, m]) => (
-          <span className="li" key={k}><span className={`status-dot dot-${m.cls}`} />{m.label}</span>
-        ))}
-      </div>
-      <div className="grid g-4" style={{ gap: 10 }}>
-        {rooms.map((r) => {
-          const m = STATUS_META[r.status]
-          return (
-            <div key={r.id} className={`st-${m.cls}`} style={{ borderRadius: 'var(--r-md)', padding: '12px 12px 14px' }}>
-              <div style={{ fontWeight: 600, fontSize: 13.5 }}>{r.name}</div>
-              <div style={{ fontSize: 12, opacity: .85, marginTop: 2 }}>{m.label}</div>
-            </div>
-          )
-        })}
-      </div>
-    </Panel>
-  )
-}
+const statusBadge = (s) => s === 'done' ? 'vip' : s === 'inservice' ? 'free' : 'sage'
+const statusLabel = (s) => s === 'done' ? 'Tamamlandı' : s === 'inservice' ? 'İşlemde' : 'Planlandı'
 
 // ---- Terapist paneli (para yok) ---------------------------------------------
 function TherapistDashboard({ store, nav }) {
-  const { user, visibleAppointments, rooms, STATUS_META } = store
+  const { user, visibleAppointments } = store
   const mine = visibleAppointments.filter((a) => a.therapistId === user.therapistId)
   const upcoming = mine.filter((a) => a.status !== 'done').sort((a, b) => a.time.localeCompare(b.time))
   const done = mine.filter((a) => a.status === 'done').length
@@ -75,25 +54,19 @@ function TherapistDashboard({ store, nav }) {
         <Stat label="Sıradaki randevu" value={next ? next.time : '—'} icon="clock" />
       </div>
 
-      <div className="grid section-gap" style={{ gridTemplateColumns: '1.15fr 1fr' }}>
-        <Panel title="Bugünkü Programınız"
-          action={<a className="link-more" onClick={() => nav('/randevular')}>Takvimi Aç <Icon.chevronR /></a>}>
-          {mine.length ? [...mine].sort((a, b) => a.time.localeCompare(b.time)).map((a) => (
-            <div className="list-row" key={a.id} style={{ cursor: 'pointer' }} onClick={() => nav('/randevular')}>
-              <div className="chip ghost" style={{ minWidth: 62, justifyContent: 'center', fontVariantNumeric: 'tabular-nums' }}>{a.time}</div>
-              <div className="grow">
-                <div style={{ fontWeight: 600, color: 'var(--forest-ink)' }}>{a.service}{a.variant === 'package' ? ' · Paket' : ''}</div>
-                <div className="muted small">{a.guest} · {a.room}</div>
-              </div>
-              <Badge kind={a.status === 'done' ? 'vip' : a.status === 'inservice' ? 'free' : 'sage'}>
-                {a.status === 'done' ? 'Tamamlandı' : a.status === 'inservice' ? 'İşlemde' : 'Planlandı'}
-              </Badge>
+      <Panel className="section-gap" title="Bugünkü Programınız"
+        action={<a className="link-more" onClick={() => nav('/randevular')}>Takvimi Aç <Icon.chevronR /></a>}>
+        {mine.length ? [...mine].sort((a, b) => a.time.localeCompare(b.time)).map((a) => (
+          <div className="list-row" key={a.id} style={{ cursor: 'pointer' }} onClick={() => nav('/randevular')}>
+            <div className="chip ghost" style={{ minWidth: 62, justifyContent: 'center', fontVariantNumeric: 'tabular-nums' }}>{a.time}</div>
+            <div className="grow">
+              <div style={{ fontWeight: 600, color: 'var(--forest-ink)' }}>{a.service}{a.variant === 'package' ? ' · Paket' : ''}</div>
+              <div className="muted small">{a.guest}</div>
             </div>
-          )) : <p className="muted small">Bugün için size atanmış randevu yok.</p>}
-        </Panel>
-
-        <FloorPanel rooms={rooms} STATUS_META={STATUS_META} nav={nav} />
-      </div>
+            <Badge kind={statusBadge(a.status)}>{statusLabel(a.status)}</Badge>
+          </div>
+        )) : <p className="muted small">Bugün için size atanmış randevu yok.</p>}
+      </Panel>
     </div>
   )
 }
@@ -101,7 +74,7 @@ function TherapistDashboard({ store, nav }) {
 export default function Dashboard() {
   const nav = useNavigate()
   const store = useStore()
-  const { user, visibleAppointments, rooms, KPIS, STATUS_META } = store
+  const { user, visibleAppointments, KPIS } = store
 
   if (user?.role === 'therapist') return <TherapistDashboard store={store} nav={nav} />
 
@@ -119,32 +92,26 @@ export default function Dashboard() {
 
       <div className="grid g-4">
         <Stat label={KPIS.revenue.label} value={KPIS.revenue.value} delta={KPIS.revenue.delta} icon="finance" />
-        <Stat label={KPIS.occupancy.label} value={KPIS.occupancy.value} delta={KPIS.occupancy.delta} icon="floor" />
         <Stat label={KPIS.appts.label} value={KPIS.appts.value} delta={KPIS.appts.delta} icon="calendar" />
+        <Stat label={KPIS.basket.label} value={KPIS.basket.value} delta={KPIS.basket.delta} icon="pos" />
         <Stat label={KPIS.guests.label} value={KPIS.guests.value} delta={KPIS.guests.delta} icon="guests" />
       </div>
 
-      <div className="grid section-gap" style={{ gridTemplateColumns: '1.15fr 1fr' }}>
-        <Panel title="Bugünkü Randevular"
-          action={<a className="link-more" onClick={() => nav('/randevular')}>Tümünü Gör <Icon.chevronR /></a>}>
-          <div>
-            {today.slice(0, 6).map((a) => (
-              <div className="list-row" key={a.id} style={{ cursor: 'pointer' }} onClick={() => nav('/randevular')}>
-                <div className="chip ghost" style={{ minWidth: 62, justifyContent: 'center', fontVariantNumeric: 'tabular-nums' }}>{a.time}</div>
-                <div className="grow">
-                  <div style={{ fontWeight: 600, color: 'var(--forest-ink)' }}>
-                    {a.service} {a.freeHammam && <Badge kind="free">ÜCRETSİZ</Badge>}
-                  </div>
-                  <div className="muted small">{a.guest} · {a.therapist || 'Terapistsiz'}</div>
-                </div>
-                <div className="chip">{a.room}</div>
+      <Panel className="section-gap" title="Bugünkü Randevular"
+        action={<a className="link-more" onClick={() => nav('/randevular')}>Tümünü Gör <Icon.chevronR /></a>}>
+        {today.length ? today.slice(0, 8).map((a) => (
+          <div className="list-row" key={a.id} style={{ cursor: 'pointer' }} onClick={() => nav('/randevular')}>
+            <div className="chip ghost" style={{ minWidth: 62, justifyContent: 'center', fontVariantNumeric: 'tabular-nums' }}>{a.time}</div>
+            <div className="grow">
+              <div style={{ fontWeight: 600, color: 'var(--forest-ink)' }}>
+                {a.service} {a.freeHammam && <Badge kind="free">ÜCRETSİZ</Badge>}
               </div>
-            ))}
+              <div className="muted small">{a.guest} · {a.therapist || 'Terapistsiz'}</div>
+            </div>
+            <Badge kind={statusBadge(a.status)}>{statusLabel(a.status)}</Badge>
           </div>
-        </Panel>
-
-        <FloorPanel rooms={rooms} STATUS_META={STATUS_META} nav={nav} />
-      </div>
+        )) : <p className="muted small">Bugün için randevu yok. Takvimden boş bir saate tıklayarak randevu açabilirsiniz.</p>}
+      </Panel>
 
       <div className="grid section-gap" style={{ gridTemplateColumns: '1.15fr 1fr' }}>
         <div className="hero-banner">

@@ -6,7 +6,6 @@ import Icon from './icons.jsx'
 const ITEMS = [
   { key: 'dashboard', to: '/', label: 'Özet', icon: 'dashboard', end: true },
   { key: 'appointments', to: '/randevular', label: 'Takvim', icon: 'calendar' },
-  { key: 'floor', to: '/spa-floor', label: 'Floor', icon: 'floor' },
   { key: 'sales', to: '/satis', label: 'Satış', icon: 'pos' },
   { key: 'guests', to: '/misafirler', label: 'Misafir', icon: 'guests' },
   { key: 'finance', to: '/finans', label: 'Finans', icon: 'finance' },

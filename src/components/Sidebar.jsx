@@ -7,7 +7,6 @@ const NAV = [
   { section: 'Operasyon' },
   { key: 'dashboard',    to: '/',            label: 'Dashboard',   icon: 'dashboard' },
   { key: 'appointments', to: '/randevular',  label: 'Randevular',  icon: 'calendar' },
-  { key: 'floor',        to: '/spa-floor',   label: 'Spa Floor',   icon: 'floor' },
   { key: 'guests',       to: '/misafirler',  label: 'Misafirler',  icon: 'guests' },
   { key: 'therapists',   to: '/terapistler', label: 'Terapistler', icon: 'therapist' },
   { section: 'Satış & Ürün' },

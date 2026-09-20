@@ -41,7 +41,7 @@ export default function Sales() {
                   {a.freeHammam && <Badge kind="free">ÜCRETSİZ</Badge>}
                   {a.undecided && <Badge kind="free">KARAR BEKLİYOR</Badge>}
                 </div>
-                <div className="muted small">{a.guest} · {a.room} · {a.therapist || 'Terapistsiz'}</div>
+                <div className="muted small">{a.guest}{a.phone ? ' · ' + a.phone : ''} · {a.therapist || 'Terapistsiz'}</div>
               </div>
               <div className="money">{a.price ? fmtTRY(a.price) : (a.undecided ? '—' : '₺0')}</div>
               <Button sm variant="ghost" onClick={() => setTicket(a)}>Adisyon Aç</Button>
@@ -116,7 +116,7 @@ function Adisyon({ appt, store, onClose }) {
   }
 
   return (
-    <Modal title={`Adisyon #${appt.id.toUpperCase().slice(0, 6)}`} sub={`Misafir: ${appt.guest} · ${appt.room}`} onClose={onClose} wide
+    <Modal title={`Adisyon #${appt.id.toUpperCase().slice(0, 6)}`} sub={`Misafir: ${appt.guest}${appt.phone ? ' · ' + appt.phone : ''}`} onClose={onClose} wide
       footer={<>
         <label className="center gap-sm small muted" style={{ marginRight: 'auto', cursor: 'pointer' }}>
           <input type="checkbox" checked={hideAfter} onChange={(e) => setHideAfter(e.target.checked)} />

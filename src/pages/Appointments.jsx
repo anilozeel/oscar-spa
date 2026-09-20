@@ -7,14 +7,14 @@ import Icon from '../components/icons.jsx'
 const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
 const fmtMin = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 const addMin = (t, m) => fmtMin(toMin(t) + m)
+const phoneOk = (p) => String(p || '').replace(/\D/g, '').length >= 7
 
 const SLOTS = []
 for (let h = 9; h <= 20; h++) { SLOTS.push(`${String(h).padStart(2, '0')}:00`); if (h < 20) SLOTS.push(`${String(h).padStart(2, '0')}:30`) }
 
-// Takvim gün aralığı
-const DAY_START = 9 * 60      // 09:00
-const DAY_END = 22 * 60       // 22:00
-const PXPM = 1                // 1 piksel / dakika  (30 dk = 30px)
+const DAY_START = 9 * 60
+const DAY_END = 22 * 60
+const PXPM = 1
 const GRID = []
 for (let m = DAY_START; m < DAY_END; m += 30) GRID.push({ min: m, label: fmtMin(m), hour: m % 60 === 0 })
 
@@ -34,11 +34,10 @@ export default function Appointments() {
   const [detail, setDetail] = useState(null)
   const [view, setView] = useState('day')
   const [offset, setOffset] = useState(0)
-  const [hidden, setHidden] = useState(() => new Set()) // gizlenen terapist sütunları
+  const [hidden, setHidden] = useState(() => new Set())
 
   const base = new Date(); base.setDate(base.getDate() + offset)
   const dateLabel = base.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  // Terapist ise sadece kendi randevuları
   const dayAppts = offset === 0
     ? (isTherapist ? visibleAppointments.filter((a) => a.therapistId === myId) : visibleAppointments)
     : []
@@ -48,7 +47,6 @@ export default function Appointments() {
 
   const toggle = (id) => setHidden((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
 
-  // Sürükle-bırak ile yeniden planlama (terapist sütunu + saat)
   const onReschedule = (id, colId, slotMin) => {
     const a = visibleAppointments.find((x) => x.id === id); if (!a) return
     const dur = toMin(a.end) - toMin(a.time)
@@ -64,7 +62,6 @@ export default function Appointments() {
     updateAppointment(id, patch)
   }
 
-  // Boş saate tıklayınca: o terapist + saat için yeni randevu
   const openNew = (colId, min) => {
     setPrefill({ therapistId: colId === 'none' ? null : colId, time: fmtMin(min) })
     setOpen(true)
@@ -86,7 +83,6 @@ export default function Appointments() {
         }
       />
 
-      {/* Araç çubuğu: tarih navigasyonu + terapist filtresi */}
       <div className="cal-toolbar">
         <div className="center gap-sm">
           <button className="icon-btn" style={{ width: 38, height: 38 }} onClick={() => setOffset((o) => o - 1)}><Icon.chevron style={{ transform: 'rotate(90deg)' }} /></button>
@@ -110,7 +106,7 @@ export default function Appointments() {
       ) : (
         <Panel className="section-gap" title={dateLabel}>
           <table className="table">
-            <thead><tr><th>Saat</th><th>Hizmet</th><th>Misafir</th>{!isTherapist && <th>Terapist</th>}<th>Oda</th>{!isTherapist && <th className="num">Tutar</th>}<th>Durum</th></tr></thead>
+            <thead><tr><th>Saat</th><th>Hizmet</th><th>Misafir</th>{!isTherapist && <th>Terapist</th>}{!isTherapist && <th className="num">Tutar</th>}<th>Durum</th></tr></thead>
             <tbody>
               {[...dayAppts].sort((a, b) => a.time.localeCompare(b.time)).map((a) => (
                 <tr key={a.id} style={{ cursor: 'pointer' }} onClick={() => setDetail(a)}>
@@ -118,12 +114,11 @@ export default function Appointments() {
                   <td>{a.service} <Tags a={a} /></td>
                   <td>{a.guest}</td>
                   {!isTherapist && <td className={!a.therapist ? 'muted' : ''}>{a.therapist || '—'}</td>}
-                  <td>{a.room}</td>
                   {!isTherapist && <td className="num money">{a.price ? fmtTRY(a.price) : '—'}</td>}
                   <td><Badge kind={STATUS_TAG[a.status].kind}>{STATUS_TAG[a.status].label}</Badge></td>
                 </tr>
               ))}
-              {!dayAppts.length && <tr><td colSpan={isTherapist ? 5 : 7} className="muted" style={{ textAlign: 'center', padding: 30 }}>Bu güne ait randevu yok.</td></tr>}
+              {!dayAppts.length && <tr><td colSpan={isTherapist ? 4 : 6} className="muted" style={{ textAlign: 'center', padding: 30 }}>Bu güne ait randevu yok.</td></tr>}
             </tbody>
           </table>
         </Panel>
@@ -133,7 +128,7 @@ export default function Appointments() {
         <Helper>
           {isTherapist
             ? <><b>Programınız:</b> Yalnızca size atanan randevuları görürsünüz. Detay için randevuya tıklayın; işleme başladığınızda / bitirdiğinizde durumunu güncelleyebilirsiniz.</>
-            : <><b>İpucu:</b> Randevuyu başka bir terapiste veya saate <b>sürükleyip bırakın</b>; düzenlemek için üstüne <b>tıklayın</b>. Aynı terapist/oda aynı saatte ikinci kez rezerve edilemez — sistem çakışmayı engeller.</>}
+            : <><b>İpucu:</b> Boş saate tıklayarak randevu açın. Randevuyu başka terapiste/saate <b>sürükleyip bırakın</b>; düzenlemek için üstüne <b>tıklayın</b>. Aynı terapist aynı saatte ikinci kez rezerve edilemez.</>}
         </Helper>
       </div>
 
@@ -162,9 +157,9 @@ function DayCalendar({ appts, therapists, onPick, onReschedule, onNewAt, canEdit
   if (hasNone) cols.push({ id: 'none', name: 'Terapistsiz / Hamam', color: '#b8935a' })
   const bodyH = DAY_END - DAY_START
 
-  const colEls = useRef([])        // sütun DOM referansları
-  const startRef = useRef(null)    // aktif sürükleme başlangıç bilgisi
-  const [drag, setDrag] = useState(null) // { id, x, y, w, appt, colIndex }
+  const colEls = useRef([])
+  const startRef = useRef(null)
+  const [drag, setDrag] = useState(null)
 
   const colIndexAtX = (x) => {
     for (let i = 0; i < colEls.current.length; i++) {
@@ -260,8 +255,7 @@ function DayCalendar({ appts, therapists, onPick, onReschedule, onNewAt, canEdit
         </div>
       </div>
 
-      {/* Sürüklenen kopya (hayalet) — hedef terapistin rengini alır */}
-      {drag && drag.moved !== false && (
+      {drag && (
         <div className="tcal-ghost" style={{
           left: drag.x, top: drag.y, width: drag.w,
           background: cols[drag.colIndex >= 0 ? drag.colIndex : 0]?.color || '#2c4a38',
@@ -294,7 +288,6 @@ function ApptView({ appt, store, onClose }) {
       <div className="card" style={{ background: 'var(--surface-2)' }}>
         <div className="kv"><span className="k">Hizmet</span><span className="v">{appt.service}{appt.variant === 'package' ? ' · Paket' : ''}</span></div>
         <div className="kv"><span className="k">Misafir</span><span className="v">{appt.guest}</span></div>
-        <div className="kv"><span className="k">Oda</span><span className="v">{appt.room}</span></div>
         <div className="kv"><span className="k">Saat</span><span className="v">{appt.time} – {appt.end}</span></div>
       </div>
       <p className="muted small" style={{ marginTop: 12 }}>Fiyat, prim ve ödeme bilgileri terapist görünümünde gösterilmez.</p>
@@ -306,27 +299,49 @@ function ApptView({ appt, store, onClose }) {
 const DURATIONS = [30, 40, 45, 50, 60, 75, 80, 90, 120]
 
 function EditAppt({ appt, store, onClose }) {
-  const { therapists, rooms, guests, fmtTRY, updateAppointment, cancelAppointment } = store
+  const { services, therapists, fmtTRY, updateAppointment, cancelAppointment, PACKAGE_DURATION } = store
   const nav = useNavigate()
+  const [serviceId, setServiceId] = useState(appt.serviceId || 'undecided')
+  const [variant, setVariant] = useState(appt.variant || 'solo')
   const [time, setTime] = useState(appt.time)
   const [dur, setDur] = useState(toMin(appt.end) - toMin(appt.time))
   const [therapistId, setTherapistId] = useState(appt.therapistId || '')
-  const [roomId, setRoomId] = useState(appt.roomId || '')
   const [guestName, setGuestName] = useState(appt.guest || '')
+  const [phone, setPhone] = useState(appt.phone || '')
   const [price, setPrice] = useState(appt.price || 0)
   const [status, setStatus] = useState(appt.status)
 
+  const svc = services.find((s) => s.id === serviceId)  // undefined => "Girişte Belirlenecek"
+  const isPackage = svc?.hasPackage && variant === 'package'
   const end = addMin(time, Number(dur))
-  const durOptions = DURATIONS.includes(dur) ? DURATIONS : [dur, ...DURATIONS]
+  const durOptions = DURATIONS.includes(Number(dur)) ? DURATIONS : [Number(dur), ...DURATIONS]
+
+  const onServiceChange = (id) => {
+    setServiceId(id)
+    const s = services.find((x) => x.id === id)
+    if (s) { setVariant('solo'); setPrice(s.price); setDur(s.duration) }
+  }
+  const onVariant = (v) => {
+    setVariant(v)
+    if (svc?.hasPackage) { setPrice(v === 'package' ? svc.pkgPrice : svc.price); setDur(v === 'package' ? PACKAGE_DURATION : svc.duration) }
+  }
+
+  const canSave = guestName.trim() && phoneOk(phone)
 
   const save = () => {
     const t = therapists.find((x) => x.id === therapistId)
-    const r = rooms.find((x) => x.id === roomId)
+    const commissionType = svc ? (svc.hasPackage ? (isPackage ? 'package' : 'massage') : svc.commissionType) : (appt.commissionType || 'none')
     const ok = updateAppointment(appt.id, {
       time, end,
+      serviceId,
+      service: svc ? svc.name : 'Girişte Belirlenecek',
+      variant: svc?.hasPackage ? variant : null,
+      commissionType,
+      undecided: svc ? false : true,
+      freeHammam: !!svc?.free,
       therapistId: therapistId || null, therapist: t?.name || null,
-      roomId: roomId || null, room: r?.name || appt.room,
-      guestId: appt.guestId || null, guest: guestName.trim() || appt.guest,
+      guestId: appt.guestId || null, guest: guestName.trim(),
+      phone: phone.trim(),
       price: Number(price), status,
     })
     if (ok) onClose()
@@ -334,13 +349,31 @@ function EditAppt({ appt, store, onClose }) {
   const remove = () => { cancelAppointment(appt.id); onClose() }
 
   return (
-    <Modal title="Randevuyu Düzenle" sub={`${appt.service}`} onClose={onClose}
+    <Modal title="Randevuyu Düzenle" sub={appt.undecided ? 'Girişte ne seçildiğini buradan kaydedin' : appt.service} onClose={onClose}
       footer={<>
         <Button variant="ghost" onClick={remove} style={{ marginRight: 'auto', color: 'var(--danger)' }}>İptal Et</Button>
         <Button variant="ghost" onClick={onClose}>Kapat</Button>
-        <Button icon="check" onClick={save}>Kaydet</Button>
+        <Button icon="check" disabled={!canSave} onClick={save}>Kaydet</Button>
       </>}>
       <div className="center gap-sm wrap" style={{ marginBottom: 14 }}><Tags a={appt} /></div>
+
+      {/* Hizmet — girişte karar verilen randevu dahil değiştirilebilir */}
+      <div className="field" style={{ marginBottom: 14 }}>
+        <label>Hizmet</label>
+        <select className="select" value={serviceId} onChange={(e) => onServiceChange(e.target.value)}>
+          <option value="undecided">Girişte Belirlenecek</option>
+          {services.map((s) => <option key={s.id} value={s.id}>{s.name}{s.price ? ` — ${fmtTRY(s.price)}` : ''}</option>)}
+        </select>
+      </div>
+      {svc?.hasPackage && (
+        <div className="field" style={{ marginBottom: 14 }}>
+          <label>Satış türü</label>
+          <div className="seg" style={{ width: '100%' }}>
+            <button className={variant === 'solo' ? 'on' : ''} style={{ flex: 1 }} onClick={() => onVariant('solo')}>Sadece Masaj · {fmtTRY(svc.price)}</button>
+            <button className={variant === 'package' ? 'on' : ''} style={{ flex: 1 }} onClick={() => onVariant('package')}>Paket · {fmtTRY(svc.pkgPrice)}</button>
+          </div>
+        </div>
+      )}
 
       <div className="grid g-2" style={{ gap: 14 }}>
         <div className="field">
@@ -366,10 +399,8 @@ function EditAppt({ appt, store, onClose }) {
           </select>
         </div>
         <div className="field">
-          <label>Oda</label>
-          <select className="select" value={roomId} onChange={(e) => setRoomId(e.target.value)}>
-            {rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-          </select>
+          <label>Fiyat (₺)</label>
+          <input className="input" type="number" min="0" step="50" value={price} onChange={(e) => setPrice(e.target.value)} />
         </div>
       </div>
 
@@ -379,8 +410,8 @@ function EditAppt({ appt, store, onClose }) {
           <input className="input" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Misafir adı" />
         </div>
         <div className="field">
-          <label>Fiyat (₺)</label>
-          <input className="input" type="number" min="0" step="50" value={price} onChange={(e) => setPrice(e.target.value)} />
+          <label>Telefon <span style={{ color: 'var(--danger)' }}>*</span></label>
+          <input className="input" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05xx xxx xx xx" />
         </div>
       </div>
 
@@ -393,8 +424,10 @@ function EditAppt({ appt, store, onClose }) {
         </select>
       </div>
 
+      {!canSave && <p className="small" style={{ color: 'var(--gold-deep)', marginTop: 12 }}>Kaydetmek için misafir adı ve geçerli telefon numarası gerekli.</p>}
+
       {appt.status !== 'done' && (
-        <Button block variant="ghost" icon="pos" style={{ marginTop: 16 }} onClick={() => { onClose(); nav('/satis') }}>
+        <Button block variant="ghost" icon="pos" style={{ marginTop: 12 }} onClick={() => { onClose(); nav('/satis') }}>
           Adisyona / Ödemeye Git
         </Button>
       )}
@@ -404,15 +437,15 @@ function EditAppt({ appt, store, onClose }) {
 
 // ---- Yeni randevu akışı ------------------------------------------------------
 function NewAppointment({ store, prefill, onClose }) {
-  const { services, therapists, rooms, guests, fmtTRY, addAppointment, findConflict,
-          ROOM_TYPE_LABEL, UNDECIDED_SERVICE, PACKAGE_DURATION, PACKAGE_INFO } = store
+  const { services, therapists, fmtTRY, addAppointment, findConflict,
+          UNDECIDED_SERVICE, PACKAGE_DURATION, PACKAGE_INFO } = store
   const [step, setStep] = useState(0)
   const [svc, setSvc] = useState(null)
   const [variant, setVariant] = useState('solo')
   const [time, setTime] = useState(prefill?.time || '15:00')
   const [therapistId, setTherapistId] = useState(prefill?.therapistId || null)
-  const [roomId, setRoomId] = useState(null)
   const [guestName, setGuestName] = useState('')
+  const [phone, setPhone] = useState('')
 
   const isFree = !!svc?.free
   const isUndecided = !!svc?.undecided
@@ -427,20 +460,16 @@ function NewAppointment({ store, prefill, onClose }) {
   const freeTherapists = useMemo(() =>
     therapists.filter((t) => t.active && !findConflict({ ...draftBase, therapistId: t.id })),
     [time, end, therapists])
-  const freeRooms = useMemo(() =>
-    rooms.filter((r) => svc?.roomTypes.includes(r.type) && !findConflict({ ...draftBase, roomId: r.id })),
-    [time, end, svc, rooms])
 
   const STEPS = isFree
-    ? ['Hizmet', 'Süre & Saat', 'Oda', 'Onay']
-    : ['Hizmet', 'Süre & Saat', 'Terapist', 'Oda', 'Onay']
+    ? ['Hizmet', 'Süre & Saat', 'Onay']
+    : ['Hizmet', 'Süre & Saat', 'Terapist', 'Onay']
 
   const therapist = therapists.find((t) => t.id === therapistId)
-  const room = rooms.find((r) => r.id === roomId)
 
   const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1))
   const back = () => setStep((s) => Math.max(0, s - 1))
-  const pickService = (s) => { setSvc(s); setVariant('solo'); setTherapistId(prefill?.therapistId || null); setRoomId(null) }
+  const pickService = (s) => { setSvc(s); setVariant('solo'); setTherapistId(prefill?.therapistId || null) }
 
   const confirm = () => {
     const ok = addAppointment({
@@ -448,7 +477,7 @@ function NewAppointment({ store, prefill, onClose }) {
       variant: svc.hasPackage ? variant : null, commissionType,
       therapistId: isFree ? null : therapistId,
       therapist: isFree ? null : therapist?.name,
-      roomId, room: room?.name, guestId: null, guest: guestName.trim(),
+      guestId: null, guest: guestName.trim(), phone: phone.trim(),
       price, status: 'booked', pay: null, freeHammam: isFree, undecided: isUndecided,
     })
     if (ok) onClose()
@@ -458,17 +487,17 @@ function NewAppointment({ store, prefill, onClose }) {
   const canNext =
     realStep === 'Hizmet' ? !!svc :
     realStep === 'Süre & Saat' ? !!time :
-    realStep === 'Terapist' ? !!therapistId :
-    realStep === 'Oda' ? !!roomId : true
+    realStep === 'Terapist' ? !!therapistId : true
+  const canConfirm = guestName.trim() && phoneOk(phone)
 
   return (
-    <Modal title="Yeni Randevu" sub="Hizmeti seçin; sistem uygun terapist ve odayı önersin." onClose={onClose} wide
+    <Modal title="Yeni Randevu" sub="Hizmeti seçin; sistem uygun terapisti önersin." onClose={onClose} wide
       footer={
         <>
           {step > 0 && <Button variant="ghost" onClick={back}>Geri</Button>}
           {realStep !== 'Onay'
             ? <Button icon="chevronR" disabled={!canNext} onClick={next}>Devam</Button>
-            : <Button icon="check" disabled={!guestName.trim()} onClick={confirm}>Randevuyu Oluştur</Button>}
+            : <Button icon="check" disabled={!canConfirm} onClick={confirm}>Randevuyu Oluştur</Button>}
         </>
       }>
       <div className="steps">
@@ -526,8 +555,8 @@ function NewAppointment({ store, prefill, onClose }) {
               </div>
             </div>
           </div>
-          {isFree && <div style={{ marginTop: 14 }}><Helper>Ücretsiz hamam kullanımı: terapist seçimi istenmez, tutar ve prim ₺0’dır — ancak hamam kapasitesini yine de bloke eder.</Helper></div>}
-          {isUndecided && <div style={{ marginTop: 14 }}><Helper>Karar bekleyen randevu: slot (terapist + oda + saat) şimdi ayrılır. Gerçek hizmet <b>Satış &amp; POS</b> ekranında seçilir; fiyat ve prim o an belirlenir.</Helper></div>}
+          {isFree && <div style={{ marginTop: 14 }}><Helper>Ücretsiz hamam kullanımı: terapist seçimi istenmez, tutar ve prim ₺0’dır.</Helper></div>}
+          {isUndecided && <div style={{ marginTop: 14 }}><Helper>Karar bekleyen randevu: slot (terapist + saat) şimdi ayrılır. Misafir geldiğinde gerçek hizmeti randevuya tıklayıp <b>Randevuyu Düzenle</b>’den seçebilirsiniz.</Helper></div>}
         </>
       )}
 
@@ -548,37 +577,27 @@ function NewAppointment({ store, prefill, onClose }) {
         </>
       )}
 
-      {realStep === 'Oda' && (
-        <>
-          <p className="muted small" style={{ marginBottom: 12 }}>{svc.name} için uygun {svc.roomTypes.map((t) => ROOM_TYPE_LABEL[t]).join(' / ')}:</p>
-          <div className="pick-grid">
-            {rooms.filter((r) => svc.roomTypes.includes(r.type)).map((r) => {
-              const free = freeRooms.some((f) => f.id === r.id)
-              return (
-                <button key={r.id} disabled={!free} className={`pick ${roomId === r.id ? 'on' : ''}`} onClick={() => setRoomId(r.id)}>
-                  <div className="p-t">{r.name}</div>
-                  <div className="p-s">{ROOM_TYPE_LABEL[r.type]} · {free ? 'Müsait' : 'Dolu / uygun değil'}</div>
-                </button>
-              )
-            })}
-          </div>
-        </>
-      )}
-
       {realStep === 'Onay' && (
         <div>
-          <div className="field" style={{ marginBottom: 16 }}>
-            <label>Misafir adı</label>
-            <input className="input" autoFocus value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Örn. Ahmet Yılmaz" />
+          <div className="grid g-2" style={{ gap: 14, marginBottom: 16 }}>
+            <div className="field">
+              <label>Misafir adı <span style={{ color: 'var(--danger)' }}>*</span></label>
+              <input className="input" autoFocus value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Örn. Ahmet Yılmaz" />
+            </div>
+            <div className="field">
+              <label>Telefon <span style={{ color: 'var(--danger)' }}>*</span></label>
+              <input className="input" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05xx xxx xx xx" />
+            </div>
           </div>
           <div className="card" style={{ background: 'var(--surface-2)' }}>
             <div className="kv"><span className="k">Hizmet</span><span className="v">{isUndecided ? 'Girişte belirlenecek' : svc.name}{isPackage ? ' · Paket' : (svc.hasPackage ? ' · Sadece Masaj' : '')}</span></div>
             <div className="kv"><span className="k">Saat</span><span className="v">{time}–{end} ({duration} dk)</span></div>
             <div className="kv"><span className="k">Terapist</span><span className="v">{isFree ? 'Terapistsiz (ücretsiz hamam)' : therapist?.name}</span></div>
-            <div className="kv"><span className="k">Oda</span><span className="v">{room?.name}</span></div>
             <div className="kv"><span className="k">Misafir</span><span className="v">{guestName || '—'}</span></div>
+            <div className="kv"><span className="k">Telefon</span><span className="v">{phone || '—'}</span></div>
             <div className="kv"><span className="k">Tutar</span><span className="v money">{isUndecided ? 'Girişte belirlenecek' : (price ? fmtTRY(price) : '₺0')}</span></div>
           </div>
+          {!canConfirm && <p className="small" style={{ color: 'var(--gold-deep)', marginTop: 12 }}>Rezervasyonu oluşturmak için misafir adı ve geçerli telefon numarası zorunludur.</p>}
         </div>
       )}
     </Modal>

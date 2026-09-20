@@ -27,9 +27,9 @@ export const ACCOUNTS = [
 // Rol bazlı menü erişimi
 export const ROLE_ACCESS = {
   owner:      '*',
-  manager:    ['dashboard','appointments','floor','guests','therapists','services','packages','sales','inventory','finance','reports','settings'],
-  reception:  ['dashboard','appointments','floor','guests','services','packages','sales'],
-  therapist:  ['dashboard','appointments','floor'], // sadece takvim/kendi programı — para yok
+  manager:    ['dashboard','appointments','guests','therapists','services','packages','sales','inventory','finance','reports','settings'],
+  reception:  ['dashboard','appointments','guests','services','packages','sales'],
+  therapist:  ['dashboard','appointments'], // sadece takvim/kendi programı — para yok
   accounting: ['dashboard','sales','finance','reports','inventory'],
 }
 

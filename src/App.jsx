@@ -4,7 +4,6 @@ import Layout from './components/Layout.jsx'
 import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Appointments from './pages/Appointments.jsx'
-import SpaFloor from './pages/SpaFloor.jsx'
 import Guests from './pages/Guests.jsx'
 import Therapists from './pages/Therapists.jsx'
 import Services from './pages/Services.jsx'
@@ -30,7 +29,6 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/randevular" element={<Guarded k="appointments"><Appointments /></Guarded>} />
-        <Route path="/spa-floor" element={<Guarded k="floor"><SpaFloor /></Guarded>} />
         <Route path="/misafirler" element={<Guarded k="guests"><Guests /></Guarded>} />
         <Route path="/terapistler" element={<Guarded k="therapists"><Therapists /></Guarded>} />
         <Route path="/hizmetler" element={<Guarded k="services"><Services /></Guarded>} />
