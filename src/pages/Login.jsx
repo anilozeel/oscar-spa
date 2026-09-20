@@ -27,7 +27,7 @@ export default function Login() {
             Daha hızlı operasyon, daha yüksek doluluk, daha iyi deneyim.
           </p>
           <div className="la-pills">
-            <span className="la-pill">Randevu + Spa Floor</span>
+            <span className="la-pill">Randevu + Takvim</span>
             <span className="la-pill">CRM + Paketler</span>
             <span className="la-pill">POS + Finans</span>
             <span className="la-pill">PMS + WhatsApp</span>

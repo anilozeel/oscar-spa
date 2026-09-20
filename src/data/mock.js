@@ -10,7 +10,7 @@ export const USD_TRY = 34.0 // prim USD tutarlarını ekranlarda referans için
 // ---- Roller & yetkiler (Sayfa 04) --------------------------------------------
 export const ROLES = [
   { id: 'owner',      name: 'Owner / Genel Müdür', icon: 'shield',    desc: 'Tüm raporlar, finans, yetkiler, entegrasyonlar' },
-  { id: 'manager',    name: 'Spa Manager',         icon: 'settings',  desc: 'Takvim, spa floor, mesai, paket, stok, rapor' },
+  { id: 'manager',    name: 'Spa Manager',         icon: 'settings',  desc: 'Takvim, mesai, paket, rapor' },
   { id: 'reception',  name: 'Resepsiyon',          icon: 'calendar',  desc: 'Randevu, misafir arama, ödeme, odaya yazdırma' },
   { id: 'therapist',  name: 'Terapist',            icon: 'therapist', desc: 'Kendi programı, işlem tamamlama, not' },
   { id: 'accounting', name: 'Muhasebe',            icon: 'finance',   desc: 'Kasa, komisyon, gelir/gider, fatura' },
