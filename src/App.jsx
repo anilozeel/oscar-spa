@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useStore } from './state/store.jsx'
 import Layout from './components/Layout.jsx'
@@ -21,7 +22,34 @@ function Guarded({ k, children }) {
 }
 
 export default function App() {
-  const { user } = useStore()
+  const { user, toast, sidebarOpen, setSidebarOpen } = useStore()
+  const backRef = useRef({ lastBack: 0, sidebarOpen, setSidebarOpen })
+  backRef.current.sidebarOpen = sidebarOpen
+  backRef.current.setSidebarOpen = setSidebarOpen
+
+  // Android donanım geri tuşu: açık menüyü kapat → önceki ekran → kökte çift dokunuşla çıkış
+  useEffect(() => {
+    let sub
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { Capacitor } = await import('@capacitor/core')
+        if (!Capacitor.isNativePlatform()) return
+        const { App: CapApp } = await import('@capacitor/app')
+        sub = await CapApp.addListener('backButton', ({ canGoBack }) => {
+          const s = backRef.current
+          if (s.sidebarOpen) { s.setSidebarOpen(false); return }   // önce açık menüyü kapat
+          if (canGoBack) { window.history.back(); return }         // önceki ekrana dön
+          const now = Date.now()                                    // kök ekran: çift dokunuşla çık
+          if (now - s.lastBack < 2000) CapApp.exitApp()
+          else { s.lastBack = now; toast('Çıkmak için tekrar geri tuşuna basın') }
+        })
+        if (cancelled && sub) sub.remove()
+      } catch { /* web: donanım geri tuşu yok */ }
+    })()
+    return () => { cancelled = true; if (sub) sub.remove() }
+  }, [toast])
+
   if (!user) return <Login />
 
   return (

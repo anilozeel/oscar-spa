@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eacf92"/>
+      <stop offset="0.55" stop-color="#cba86a"/>
+      <stop offset="1" stop-color="#b0894f"/>
+    </linearGradient>
+    <linearGradient id="goldBack" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#cdae76"/>
+      <stop offset="1" stop-color="#a07f49"/>
+    </linearGradient>
+  </defs>
+
+  <!-- emblem: guvenli alana sigacak sekilde olceklenip ortalanir -->
+  <g transform="translate(512 512) scale(1.7) translate(-512 -551)">
+    <!-- arka sira -->
+    <g fill="url(#goldBack)">
+      <g transform="rotate(-62 512 672)"><path d="M512 672 C 476 616 458 548 458 500 C 458 452 470 420 494 407 C 503 402 521 402 530 407 C 554 420 566 452 566 500 C 566 548 548 616 512 672 Z"/></g>
+      <g transform="rotate(62 512 672)"><path d="M512 672 C 476 616 458 548 458 500 C 458 452 470 420 494 407 C 503 402 521 402 530 407 C 554 420 566 452 566 500 C 566 548 548 616 512 672 Z"/></g>
+    </g>
+    <!-- on sira -->
+    <g fill="url(#gold)">
+      <g transform="rotate(-31 512 672)"><path d="M512 672 C 468 600 446 512 446 452 C 446 392 462 356 490 340 C 501 333 523 333 534 340 C 562 356 578 392 578 452 C 578 512 556 600 512 672 Z"/></g>
+      <path d="M512 672 C 466 596 442 500 442 434 C 442 372 458 334 488 318 C 500 311 524 311 536 318 C 566 334 582 372 582 434 C 582 500 558 596 512 672 Z"/>
+      <g transform="rotate(31 512 672)"><path d="M512 672 C 468 600 446 512 446 452 C 446 392 462 356 490 340 C 501 333 523 333 534 340 C 562 356 578 392 578 452 C 578 512 556 600 512 672 Z"/></g>
+    </g>
+    <!-- merkez vurgu -->
+    <path d="M512 672 C 484 596 470 500 470 434 C 470 380 484 344 512 322 C 540 344 554 380 554 434 C 554 500 540 596 512 672 Z" fill="#f3e2b4" fill-opacity="0.45"/>
+    <!-- su yaylari -->
+    <path d="M352 726 Q 512 796 672 726" fill="none" stroke="#b8935a" stroke-width="16" stroke-linecap="round" stroke-opacity="0.9"/>
+    <path d="M408 762 Q 512 802 616 762" fill="none" stroke="#b8935a" stroke-width="12" stroke-linecap="round" stroke-opacity="0.55"/>
+  </g>
+</svg>
