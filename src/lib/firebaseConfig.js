@@ -10,12 +10,12 @@
 // (veriler yalnızca o cihazda tutulur, cihazlar arası paylaşım olmaz).
 // ---------------------------------------------------------------------------
 export const firebaseConfig = {
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  storageBucket: '',
-  messagingSenderId: '',
-  appId: '',
+  apiKey: 'AIzaSyAKcFtOSwyTftvU7wz5HOt5BeCSSIwYBeo',
+  authDomain: 'oscar-spa-71823.firebaseapp.com',
+  projectId: 'oscar-spa-71823',
+  storageBucket: 'oscar-spa-71823.firebasestorage.app',
+  messagingSenderId: '261608365338',
+  appId: '1:261608365338:web:ec51a723787db92834a0a3',
 }
 
 // Girişte kullanıcı adını e-postaya çeviren sabit alan adı (Firebase Auth
