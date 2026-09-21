@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useState, useCallback, useEffect } from 'react'
 import * as mock from '../data/mock.js'
-import { registerPush, sendAssignmentPush } from '../lib/push.js'
+import { notifyAssignment } from '../lib/notify.js'
 import { FIREBASE_ENABLED, db, auth } from '../lib/firebase.js'
 import { AUTH_EMAIL_SUFFIX } from '../lib/firebaseConfig.js'
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore'
@@ -82,11 +82,7 @@ export function StoreProvider({ children }) {
       if (fb && fb.email) {
         setAuthUid(fb.uid)
         const acc = findAcc(fb.email.split('@')[0])
-        if (acc) {
-          const u = buildUser(acc); setUser(u); persistUser(u)
-          // APK'da push için token kaydı (web'de sessizce atlanır)
-          registerPush({ uid: fb.uid, therapistId: acc.therapistId || null, role: acc.role, name: acc.name })
-        }
+        if (acc) { const u = buildUser(acc); setUser(u); persistUser(u) }
       } else {
         setAuthUid(null); setUser(null)
         try { localStorage.removeItem('oscarspa.user') } catch { /* no-op */ }
@@ -100,6 +96,7 @@ export function StoreProvider({ children }) {
     if (!FIREBASE_ENABLED || !authUid) return
     const byTime = (a, b) => String(a.time || '').localeCompare(String(b.time || ''))
     const byNewest = (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+    const errH = (coll) => (err) => console.warn('[OscarSpa] veri dinleme hatası:', coll, err?.code || err)
     const sub = (coll, setter, sortFn) => onSnapshot(
       collection(db, coll),
       (snap) => {
@@ -107,17 +104,41 @@ export function StoreProvider({ children }) {
         if (sortFn) rows = rows.sort(sortFn)
         setter(rows)
       },
-      (err) => { console.warn('[OscarSpa] veri dinleme hatası:', coll, err?.code || err) },
+      errH(coll),
     )
+
+    // Randevular: ayrıca terapiste "yeni/atanan randevu" bildirimi (ücretsiz,
+    // cihaz açık/arka plandayken kendi telefonunda görünür — canlı veriden algılanır)
+    const myTherapistId = user?.therapistId || null
+    const myName = user?.name || ''
+    const seen = new Map()   // apptId -> therapistId (aynı bildirimi tekrarlamamak için)
+    let apptFirst = true
+    const unsubAppt = onSnapshot(collection(db, 'appointments'), (snap) => {
+      setAppointments(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byTime))
+      if (myTherapistId) {
+        snap.docs.forEach((d) => {
+          const a = d.data()
+          const prev = seen.get(d.id)
+          const nowMine = a.therapistId === myTherapistId && !a.freeHammam && a.status !== 'done'
+          // yalnızca bana YENİ atanınca (ilk yükleme ve kendi yazdıklarım hariç)
+          if (!apptFirst && nowMine && prev !== myTherapistId && !d.metadata.hasPendingWrites) {
+            notifyAssignment({ therapist: myName, service: a.service, time: a.time, guest: a.guest })
+          }
+          seen.set(d.id, a.therapistId || null)
+        })
+      }
+      apptFirst = false
+    }, errH('appointments'))
+
     const unsubs = [
-      sub('appointments', setAppointments, byTime),
+      unsubAppt,
       sub('guests', setGuests, byNewest),
       sub('packages', setPackages, byNewest),
       sub('sales', setSales, byNewest),
       sub('commissions', setCommissions, byNewest),
     ]
     return () => unsubs.forEach((u) => u())
-  }, [authUid])
+  }, [authUid, user?.therapistId, user?.name])
 
   const canAccess = useCallback((key) => {
     if (!user) return false
@@ -178,10 +199,7 @@ export function StoreProvider({ children }) {
     if (FIREBASE_ENABLED) fsSet('appointments', appt.id, appt).catch(() => toast('Randevu kaydedilemedi', 'warn'))
     else setAppointments((list) => [...list, appt])
     toast('Randevu oluşturuldu')
-    if (draft.therapistId && !draft.freeHammam) {
-      // terapistin telefonuna gerçek push bildirimi
-      sendAssignmentPush({ therapistId: draft.therapistId, service: draft.service, time: draft.time, guest: draft.guest, apptId: appt.id })
-    }
+    // Bildirim, atanan terapistin kendi cihazında canlı veriden tetiklenir (yukarıdaki dinleyici)
     return true
   }, [findConflict, toast, findOrCreateGuest])
 
@@ -209,10 +227,7 @@ export function StoreProvider({ children }) {
     if (FIREBASE_ENABLED) fsUpdate('appointments', id, finalPatch).catch(() => toast('Güncellenemedi', 'warn'))
     else setAppointments((l) => l.map((a) => (a.id === id ? { ...a, ...finalPatch } : a)))
     if (!opts.silent) toast('Randevu güncellendi')
-    if (patch.therapistId && patch.therapistId !== cur.therapistId) {
-      // terapist değiştiğinde yeni terapistin telefonuna push
-      sendAssignmentPush({ therapistId: patch.therapistId, service: draft.service, time: draft.time, guest: draft.guest, apptId: id })
-    }
+    // Terapist değişiminde bildirim, ilgili terapistin cihazında canlı veriden tetiklenir
     return true
   }, [appointments, findConflict, toast, findOrCreateGuest])
 
