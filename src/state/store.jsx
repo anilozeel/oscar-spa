@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useState, useCallback, useEffect } from 'react'
 import * as mock from '../data/mock.js'
-import { notifyAssignment } from '../lib/notify.js'
+import { registerPush, sendAssignmentPush } from '../lib/push.js'
 import { FIREBASE_ENABLED, db, auth } from '../lib/firebase.js'
 import { AUTH_EMAIL_SUFFIX } from '../lib/firebaseConfig.js'
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore'
@@ -82,7 +82,11 @@ export function StoreProvider({ children }) {
       if (fb && fb.email) {
         setAuthUid(fb.uid)
         const acc = findAcc(fb.email.split('@')[0])
-        if (acc) { const u = buildUser(acc); setUser(u); persistUser(u) }
+        if (acc) {
+          const u = buildUser(acc); setUser(u); persistUser(u)
+          // APK'da push için token kaydı (web'de sessizce atlanır)
+          registerPush({ uid: fb.uid, therapistId: acc.therapistId || null, role: acc.role, name: acc.name })
+        }
       } else {
         setAuthUid(null); setUser(null)
         try { localStorage.removeItem('oscarspa.user') } catch { /* no-op */ }
@@ -175,7 +179,8 @@ export function StoreProvider({ children }) {
     else setAppointments((list) => [...list, appt])
     toast('Randevu oluşturuldu')
     if (draft.therapistId && !draft.freeHammam) {
-      notifyAssignment({ therapist: draft.therapist, service: draft.service, time: draft.time, guest: draft.guest })
+      // terapistin telefonuna gerçek push bildirimi
+      sendAssignmentPush({ therapistId: draft.therapistId, service: draft.service, time: draft.time, guest: draft.guest, apptId: appt.id })
     }
     return true
   }, [findConflict, toast, findOrCreateGuest])
@@ -205,7 +210,8 @@ export function StoreProvider({ children }) {
     else setAppointments((l) => l.map((a) => (a.id === id ? { ...a, ...finalPatch } : a)))
     if (!opts.silent) toast('Randevu güncellendi')
     if (patch.therapistId && patch.therapistId !== cur.therapistId) {
-      notifyAssignment({ therapist: draft.therapist, service: draft.service, time: draft.time, guest: draft.guest })
+      // terapist değiştiğinde yeni terapistin telefonuna push
+      sendAssignmentPush({ therapistId: patch.therapistId, service: draft.service, time: draft.time, guest: draft.guest, apptId: id })
     }
     return true
   }, [appointments, findConflict, toast, findOrCreateGuest])

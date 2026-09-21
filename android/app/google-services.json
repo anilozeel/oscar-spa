@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "261608365338",
+    "project_id": "oscar-spa-71823",
+    "storage_bucket": "oscar-spa-71823.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:261608365338:android:11bdb34f0cb1331134a0a3",
+        "android_client_info": {
+          "package_name": "com.oscarspa.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBTHQbqL4GBapGo66J5dIby3MXmk_ei5e4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
