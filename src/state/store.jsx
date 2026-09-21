@@ -1,6 +1,10 @@
-import { createContext, useContext, useMemo, useState, useCallback } from 'react'
+import { createContext, useContext, useMemo, useState, useCallback, useEffect } from 'react'
 import * as mock from '../data/mock.js'
 import { notifyAssignment } from '../lib/notify.js'
+import { FIREBASE_ENABLED, db, auth } from '../lib/firebase.js'
+import { AUTH_EMAIL_SUFFIX } from '../lib/firebaseConfig.js'
+import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore'
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'
 
 const StoreCtx = createContext(null)
 export const useStore = () => useContext(StoreCtx)
@@ -8,22 +12,37 @@ export const useStore = () => useContext(StoreCtx)
 const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
 const overlap = (aS, aE, bS, bE) => toMin(aS) < toMin(bE) && toMin(bS) < toMin(aE)
 const uid = () => 'x' + Math.random().toString(36).slice(2, 8)
+// Firestore undefined kabul etmez — undefined alanları at
+const clean = (o) => { const r = {}; for (const k in o) if (o[k] !== undefined) r[k] = o[k]; return r }
+
+// --- Firestore yardımcıları (yalnızca Firebase aktifken) --------------------
+const fsSet = (coll, id, data) => setDoc(doc(db, coll, id), clean(data))
+const fsUpdate = (coll, id, patch) => updateDoc(doc(db, coll, id), clean(patch))
+const fsDelete = (coll, id) => deleteDoc(doc(db, coll, id))
 
 const loadUser = () => {
   try { return JSON.parse(localStorage.getItem('oscarspa.user') || 'null') } catch { return null }
 }
+const persistUser = (u) => { try { localStorage.setItem('oscarspa.user', JSON.stringify(u)) } catch { /* no-op */ } }
+
+const buildUser = (acc) => {
+  const role = mock.ROLES.find((r) => r.id === acc.role) || mock.ROLES[0]
+  const initials = acc.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+  return { name: acc.name, username: acc.username, role: acc.role, roleName: role.name, initials, therapistId: acc.therapistId || null }
+}
+const findAcc = (uname) =>
+  mock.ACCOUNTS.find((a) => a.username.toLowerCase() === String(uname || '').trim().toLowerCase())
 
 export function StoreProvider({ children }) {
-  const [user, setUser] = useState(loadUser) // {name, role, roleName, initials} — oturum kalıcı
-  const [appointments, setAppointments] = useState(mock.appointments)
-  const [rooms, setRooms] = useState(mock.rooms)
-  const [inventory, setInventory] = useState(mock.inventory)
-  const [services, setServices] = useState(mock.services)
-  const [packages, setPackages] = useState(mock.packages)
-  const [guests, setGuests] = useState(mock.guests)
+  const [user, setUser] = useState(loadUser)      // oturum kalıcı
+  const [authUid, setAuthUid] = useState(null)    // Firebase Auth hazır olunca dolar
+  // Firebase modda veriler snapshot ile dolar; yerel modda mock ilk değerdir
+  const [appointments, setAppointments] = useState(FIREBASE_ENABLED ? [] : mock.appointments)
+  const [services, setServices] = useState(mock.services)  // menü (fiyat listesi) kod tabanlı
+  const [packages, setPackages] = useState(FIREBASE_ENABLED ? [] : mock.packages)
+  const [guests, setGuests] = useState(FIREBASE_ENABLED ? [] : mock.guests)
   const [sales, setSales] = useState([])            // kapatılan adisyonlar (arşiv)
   const [commissions, setCommissions] = useState([]) // ödeme anında yazılan primler
-  const [hiddenAppts, setHiddenAppts] = useState([]) // takvimden gizlenen (arşivde kalır)
   const [toasts, setToasts] = useState([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -33,23 +52,68 @@ export function StoreProvider({ children }) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200)
   }, [])
 
-  // --- Auth (kullanıcı adı + şifre) -----------------------------------------
-  const login = useCallback((username, password) => {
-    const acc = mock.ACCOUNTS.find(
-      (a) => a.username.toLowerCase() === String(username || '').trim().toLowerCase() && a.password === password
-    )
-    if (!acc) return false
-    const role = mock.ROLES.find((r) => r.id === acc.role) || mock.ROLES[0]
-    const initials = acc.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-    const u = { name: acc.name, username: acc.username, role: acc.role, roleName: role.name, initials, therapistId: acc.therapistId || null }
-    setUser(u)
-    try { localStorage.setItem('oscarspa.user', JSON.stringify(u)) } catch { /* no-op */ }
+  // --- Auth (kullanıcı adı + şifre; Firebase Auth veya yerel) ---------------
+  const login = useCallback(async (username, password) => {
+    const acc = findAcc(username)
+    if (FIREBASE_ENABLED) {
+      if (!acc) return false // yalnızca tanımlı personel girebilir
+      try {
+        await signInWithEmailAndPassword(auth, acc.username.toLowerCase() + AUTH_EMAIL_SUFFIX, password)
+        const u = buildUser(acc); setUser(u); persistUser(u) // anında; onAuthStateChanged de teyit eder
+        return true
+      } catch { return false }
+    }
+    // yerel mod (demo şifreleri kod içinde)
+    if (!acc || acc.password !== password) return false
+    const u = buildUser(acc); setUser(u); persistUser(u)
     return true
   }, [])
+
   const logout = useCallback(() => {
     setUser(null)
     try { localStorage.removeItem('oscarspa.user') } catch { /* no-op */ }
+    if (FIREBASE_ENABLED) signOut(auth).catch(() => {})
   }, [])
+
+  // Firebase oturumunu geri yükle / dinle
+  useEffect(() => {
+    if (!FIREBASE_ENABLED) return
+    const unsub = onAuthStateChanged(auth, (fb) => {
+      if (fb && fb.email) {
+        setAuthUid(fb.uid)
+        const acc = findAcc(fb.email.split('@')[0])
+        if (acc) { const u = buildUser(acc); setUser(u); persistUser(u) }
+      } else {
+        setAuthUid(null); setUser(null)
+        try { localStorage.removeItem('oscarspa.user') } catch { /* no-op */ }
+      }
+    })
+    return unsub
+  }, [])
+
+  // Firestore canlı dinleyiciler (giriş yapıldıktan sonra)
+  useEffect(() => {
+    if (!FIREBASE_ENABLED || !authUid) return
+    const byTime = (a, b) => String(a.time || '').localeCompare(String(b.time || ''))
+    const byNewest = (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+    const sub = (coll, setter, sortFn) => onSnapshot(
+      collection(db, coll),
+      (snap) => {
+        let rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        if (sortFn) rows = rows.sort(sortFn)
+        setter(rows)
+      },
+      (err) => { console.warn('[OscarSpa] veri dinleme hatası:', coll, err?.code || err) },
+    )
+    const unsubs = [
+      sub('appointments', setAppointments, byTime),
+      sub('guests', setGuests, byNewest),
+      sub('packages', setPackages, byNewest),
+      sub('sales', setSales, byNewest),
+      sub('commissions', setCommissions, byNewest),
+    ]
+    return () => unsubs.forEach((u) => u())
+  }, [authUid])
 
   const canAccess = useCallback((key) => {
     if (!user) return false
@@ -57,25 +121,16 @@ export function StoreProvider({ children }) {
     return a === '*' || a.includes(key)
   }, [user])
 
-  // --- Çakışma kontrolü (Sayfa 05: aynı terapist/oda aynı saatte olamaz) ----
+  // --- Çakışma kontrolü: aynı terapist aynı saatte olamaz -------------------
   const findConflict = useCallback((draft, ignoreId = null) => {
+    if (!draft.therapistId) return null
     for (const a of appointments) {
-      if (a.id === ignoreId || a.status === 'done') continue
+      if (a.id === ignoreId || a.status === 'done' || a.hidden) continue
       if (!overlap(draft.time, draft.end, a.time, a.end)) continue
-      if (draft.therapistId && a.therapistId === draft.therapistId)
-        return { type: 'therapist', name: a.therapist, with: a }
-      if (draft.roomId && a.roomId === draft.roomId) {
-        // hamam kapasitesi > 1 ise blok etmez (ücretsiz hamam yine bloklar ama kapasiteye kadar)
-        const room = rooms.find((r) => r.id === a.roomId)
-        const cap = room?.capacity ?? 1
-        const sameSlot = appointments.filter(
-          (x) => x.roomId === draft.roomId && x.status !== 'done' && overlap(draft.time, draft.end, x.time, x.end)
-        ).length
-        if (cap <= 1 || sameSlot >= cap) return { type: 'room', name: a.room, with: a }
-      }
+      if (a.therapistId === draft.therapistId) return { type: 'therapist', name: a.therapist, with: a }
     }
     return null
-  }, [appointments, rooms])
+  }, [appointments])
 
   // --- Misafir (CRM) yardımcıları ------------------------------------------
   const normPhone = (p) => String(p || '').replace(/\D/g, '')
@@ -88,21 +143,23 @@ export function StoreProvider({ children }) {
     const g = {
       id: 'g_' + uid(), name: nm, phone: String(phone || '').trim(),
       initials: nm.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase(),
-      vip: false, notes: '', prefs: [],
+      vip: false, notes: '', prefs: [], createdAt: Date.now(),
     }
-    setGuests((l) => [g, ...l])
+    if (FIREBASE_ENABLED) fsSet('guests', g.id, g).catch(() => {})
+    else setGuests((l) => [g, ...l])
     return g
   }, [guests])
+
   const addGuest = useCallback((data) => {
     const nm = String(data.name || '').trim()
     if (!nm) return null
     const g = {
       id: 'g_' + uid(), name: nm, phone: String(data.phone || '').trim(),
       initials: nm.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase(),
-      vip: !!data.vip, notes: data.notes || '', prefs: data.prefs || [],
+      vip: !!data.vip, notes: data.notes || '', prefs: data.prefs || [], createdAt: Date.now(),
     }
-    setGuests((l) => [g, ...l])
-    toast('Misafir kaydedildi: ' + nm)
+    if (FIREBASE_ENABLED) fsSet('guests', g.id, g).then(() => toast('Misafir kaydedildi: ' + nm)).catch(() => toast('Kayıt yapılamadı', 'warn'))
+    else { setGuests((l) => [g, ...l]); toast('Misafir kaydedildi: ' + nm) }
     return g
   }, [toast])
 
@@ -112,9 +169,10 @@ export function StoreProvider({ children }) {
       toast(`${conflict.name} bu saatte dolu — çakışma engellendi`, 'warn')
       return false
     }
-    // misafiri CRM'e bağla (yoksa oluştur)
     const g = draft.guest ? findOrCreateGuest({ name: draft.guest, phone: draft.phone }) : null
-    setAppointments((list) => [...list, { ...draft, id: uid(), guestId: draft.guestId || g?.id || null }])
+    const appt = { ...draft, id: uid(), guestId: draft.guestId || g?.id || null, hidden: false, createdAt: Date.now() }
+    if (FIREBASE_ENABLED) fsSet('appointments', appt.id, appt).catch(() => toast('Randevu kaydedilemedi', 'warn'))
+    else setAppointments((list) => [...list, appt])
     toast('Randevu oluşturuldu')
     if (draft.therapistId && !draft.freeHammam) {
       notifyAssignment({ therapist: draft.therapist, service: draft.service, time: draft.time, guest: draft.guest })
@@ -123,7 +181,8 @@ export function StoreProvider({ children }) {
   }, [findConflict, toast, findOrCreateGuest])
 
   const cancelAppointment = useCallback((id) => {
-    setAppointments((l) => l.filter((a) => a.id !== id))
+    if (FIREBASE_ENABLED) fsDelete('appointments', id).catch(() => {})
+    else setAppointments((l) => l.filter((a) => a.id !== id))
     toast('Randevu iptal edildi')
   }, [toast])
 
@@ -132,10 +191,7 @@ export function StoreProvider({ children }) {
     const cur = appointments.find((a) => a.id === id)
     if (!cur) return false
     const draft = { ...cur, ...patch }
-    const conflict = findConflict(
-      { time: draft.time, end: draft.end, therapistId: draft.therapistId, roomId: draft.roomId },
-      id
-    )
+    const conflict = findConflict({ time: draft.time, end: draft.end, therapistId: draft.therapistId }, id)
     if (conflict) {
       toast(`${conflict.name} bu saatte dolu — çakışma engellendi`, 'warn')
       return false
@@ -145,7 +201,8 @@ export function StoreProvider({ children }) {
       const g = findOrCreateGuest({ name: patch.guest, phone: patch.phone ?? cur.phone })
       if (g) finalPatch = { ...patch, guestId: patch.guestId || g.id }
     }
-    setAppointments((l) => l.map((a) => (a.id === id ? { ...a, ...finalPatch } : a)))
+    if (FIREBASE_ENABLED) fsUpdate('appointments', id, finalPatch).catch(() => toast('Güncellenemedi', 'warn'))
+    else setAppointments((l) => l.map((a) => (a.id === id ? { ...a, ...finalPatch } : a)))
     if (!opts.silent) toast('Randevu güncellendi')
     if (patch.therapistId && patch.therapistId !== cur.therapistId) {
       notifyAssignment({ therapist: draft.therapist, service: draft.service, time: draft.time, guest: draft.guest })
@@ -159,16 +216,16 @@ export function StoreProvider({ children }) {
     [packages]
   )
   const usePackageSession = useCallback((pkgId) => {
-    setPackages((l) => l.map((p) => (p.id === pkgId ? { ...p, used: Math.min(p.total, p.used + 1) } : p)))
-  }, [])
+    const p = packages.find((x) => x.id === pkgId)
+    if (!p) return
+    const used = Math.min(p.total, p.used + 1)
+    if (FIREBASE_ENABLED) fsUpdate('packages', pkgId, { used }).catch(() => {})
+    else setPackages((l) => l.map((x) => (x.id === pkgId ? { ...x, used } : x)))
+  }, [packages])
 
-  // --- Adisyon kapatma (Sayfa 08/09): prim ödeme anındaki terapiste yazılır --
-  // override: girişte karar verilen randevularda seçilen gerçek hizmet
-  //           { serviceName, price, commissionType }
-  // payType 'package' -> tutar 0, misafirin paketinden 1 seans düşülür
+  // --- Adisyon kapatma: prim ödeme anındaki terapiste yazılır ---------------
   const closeTicket = useCallback((appt, { therapistId, payType, hideAfter, override, packageId, roomNo }) => {
     const service = mock.services.find((s) => s.id === appt.serviceId)
-    // etkin prim tipi: adisyonda seçilen > randevuda kayıtlı > hizmet tanımı
     const effType = override?.commissionType ?? appt.commissionType ?? service?.commissionType
     const isFree = appt.freeHammam || effType === 'none'
     const fromPackage = payType === 'package'
@@ -183,21 +240,26 @@ export function StoreProvider({ children }) {
       service: serviceName, amount,
       therapist: isFree ? '—' : (therapist?.name || appt.therapist || '—'),
       therapistId: isFree ? null : therapistId,
-      payType, commissionUsd, date: 'Bugün', archived: true,
+      payType, commissionUsd, date: 'Bugün', archived: true, createdAt: Date.now(),
     }
-    setSales((s) => [sale, ...s])
-    if (!isFree && commissionUsd > 0) {
-      setCommissions((c) => [
-        { id: uid(), saleId: sale.id, therapistId, therapist: therapist?.name, type: effType, usd: commissionUsd, paid: false, date: 'Bugün' },
-        ...c,
-      ])
+    const commission = (!isFree && commissionUsd > 0)
+      ? { id: uid(), saleId: sale.id, therapistId, therapist: therapist?.name || '', type: effType, usd: commissionUsd, paid: false, date: 'Bugün', createdAt: Date.now() }
+      : null
+    const apptPatch = {
+      status: 'done', pay: payType, service: serviceName, price: amount,
+      therapistId: isFree ? null : therapistId, therapist: isFree ? null : (therapist?.name || appt.therapist || null),
+      ...(hideAfter ? { hidden: true } : {}),
     }
-    // randevu tamamlandı; istenirse takvimden gizlenir (arşivde kalır)
-    setAppointments((l) => l.map((a) => a.id === appt.id
-      ? { ...a, status: 'done', pay: payType, service: serviceName, price: amount,
-          therapistId: isFree ? null : therapistId, therapist: isFree ? null : (therapist?.name || a.therapist) }
-      : a))
-    if (hideAfter) setHiddenAppts((h) => [...h, appt.id])
+
+    if (FIREBASE_ENABLED) {
+      fsSet('sales', sale.id, sale).catch(() => toast('Adisyon kaydedilemedi', 'warn'))
+      if (commission) fsSet('commissions', commission.id, commission).catch(() => {})
+      fsUpdate('appointments', appt.id, apptPatch).catch(() => {})
+    } else {
+      setSales((s) => [sale, ...s])
+      if (commission) setCommissions((c) => [commission, ...c])
+      setAppointments((l) => l.map((a) => (a.id === appt.id ? { ...a, ...apptPatch } : a)))
+    }
     if (fromPackage && packageId) usePackageSession(packageId)
 
     toast(isFree
@@ -208,42 +270,30 @@ export function StoreProvider({ children }) {
     return sale
   }, [toast, usePackageSession])
 
-  // --- Spa floor durum değişimi (manuel) ------------------------------------
-  const setRoomStatus = useCallback((roomId, status) => {
-    setRooms((l) => l.map((r) => (r.id === roomId ? { ...r, status,
-      note: status === 'maint' ? 'Bakım' : status === 'clean' ? 'Temizlik' : r.note,
-      time: mock.STATUS_META[status].label } : r)))
-  }, [])
-
-  const adjustStock = useCallback((id, delta) => {
-    setInventory((l) => l.map((i) => (i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i)))
-  }, [])
-  const addInventory = useCallback((data) => {
-    setInventory((l) => [...l, { ...data, id: 'inv_' + uid() }])
-    toast('Ürün eklendi')
-  }, [toast])
-
   // --- Hizmet & paket ekleme -----------------------------------------------
   const addService = useCallback((data) => {
+    // Menü kod tabanlı; eklenen hizmet bu cihazda görünür (ileride paylaşımlı yapılabilir)
     setServices((l) => [...l, { ...data, id: 'svc_' + uid() }])
     toast(`Hizmet eklendi: ${data.name}`)
   }, [toast])
+
   const addPackage = useCallback((data) => {
-    setPackages((l) => [{ ...data, id: 'pkg_' + uid(), used: 0 }, ...l])
-    toast(`Paket satıldı: ${data.name}`)
+    const pkg = { ...data, id: 'pkg_' + uid(), used: 0, createdAt: Date.now() }
+    if (FIREBASE_ENABLED) fsSet('packages', pkg.id, pkg).then(() => toast(`Paket satıldı: ${data.name}`)).catch(() => toast('Paket kaydedilemedi', 'warn'))
+    else { setPackages((l) => [pkg, ...l]); toast(`Paket satıldı: ${data.name}`) }
+    return pkg
   }, [toast])
 
   const visibleAppointments = useMemo(
-    () => appointments.filter((a) => !hiddenAppts.includes(a.id)),
-    [appointments, hiddenAppts]
+    () => appointments.filter((a) => !a.hidden),
+    [appointments]
   )
 
   const value = {
     ...mock,
+    FIREBASE_ENABLED,
     user, login, logout, canAccess,
     appointments, visibleAppointments, addAppointment, cancelAppointment, updateAppointment, findConflict, closeTicket,
-    rooms, setRoomStatus,
-    inventory, adjustStock, addInventory,
     services, addService,
     packages, addPackage, activePackageFor,
     guests, addGuest,

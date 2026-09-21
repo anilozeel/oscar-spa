@@ -1,0 +1,16 @@
+rules_version = '2';
+
+// OscarSpa — Firestore güvenlik kuralları (Faz 1)
+// Yalnızca giriş yapmış (Authentication) personel okuyup yazabilir.
+// Dışarıdan / girişsiz hiç kimse veriye erişemez.
+//
+// Not: Bu ilk aşamada tüm giriş yapmış personel tüm koleksiyonlara erişir;
+// para/prim gizliliği uygulama arayüzünde rol bazlı sağlanır. İleride
+// (users eşlemesiyle) terapistleri yalnızca kendi verilerine kısıtlayabiliriz.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

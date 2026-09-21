@@ -9,11 +9,18 @@ export default function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [err, setErr] = useState(false)
+  const [busy, setBusy] = useState(false)
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault()
-    const ok = login(username, password)
-    if (!ok) setErr(true)
+    if (busy) return
+    setBusy(true); setErr(false)
+    try {
+      const ok = await login(username, password)
+      if (!ok) setErr(true)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -65,8 +72,8 @@ export default function Login() {
             </div>
           )}
 
-          <Button block type="submit" icon="chevronR" style={{ marginTop: 22 }}>
-            Panele giriş yap
+          <Button block type="submit" icon="chevronR" style={{ marginTop: 22 }} disabled={busy}>
+            {busy ? 'Giriş yapılıyor…' : 'Panele giriş yap'}
           </Button>
 
           <div className="login-hint">
