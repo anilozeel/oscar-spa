@@ -1,0 +1,72 @@
+name: Build Release AAB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aab
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web (Vite)
+        run: npm run build
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Capacitor sync
+        run: npx cap sync android
+
+      - name: Decode upload keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/upload.jks"
+
+      - name: Build signed AAB
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/upload.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew bundleRelease --no-daemon --stacktrace
+
+      - name: Prepare AAB
+        run: cp android/app/build/outputs/bundle/release/app-release.aab OscarSpa.aab
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OscarSpa-AAB
+          path: OscarSpa.aab
+
+      - name: Publish AAB to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: aab
+          name: OscarSpa — Play Store AAB
+          body: |
+            Google Play Console'a yüklenecek imzalı Android App Bundle (.aab).
+            Play Console > Uygulama > Üretim (Production) > Yeni sürüm ile yükleyin.
+          files: OscarSpa.aab
