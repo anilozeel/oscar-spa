@@ -6,64 +6,46 @@ on:
       to:
         description: "Alici numara"
         default: "0553 502 94 50"
+      guest:
+        description: "Misafir adi"
+        default: "Anıl Özel"
+      date:
+        description: "Tarih"
+        default: "7 Ekim"
+      time:
+        description: "Saat"
+        default: "15:00"
+      endtime:
+        description: "Bitis"
+        default: "16:30"
+      service:
+        description: "Hizmet"
+        default: "Klasik Masaj (Paket)"
 
 jobs:
   send:
     runs-on: ubuntu-latest
     steps:
-      - name: Twilio sablon listesi + gonderim
+      - name: Mesajlari gonder (wa.php)
         env:
-          TW_SID: ${{ secrets.TWILIO_SID }}
-          TW_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
           TO: ${{ github.event.inputs.to }}
+          GUEST: ${{ github.event.inputs.guest }}
+          GDATE: ${{ github.event.inputs.date }}
+          GTIME: ${{ github.event.inputs.time }}
+          GEND: ${{ github.event.inputs.endtime }}
+          GSVC: ${{ github.event.inputs.service }}
         run: |
+          BASE="https://www.oscarseasidehotel.com/spa/wa.php"
           python3 - <<'PY'
-          import os, json, base64, urllib.request, urllib.parse, re
-          sid = os.environ["TW_SID"]; tok = os.environ["TW_TOKEN"]
-          to_raw = os.environ["TO"]
-          d = re.sub(r"\D","", to_raw)
-          if d.startswith("90"): e164 = "+"+d
-          elif d.startswith("0"): e164 = "+90"+d[1:]
-          elif len(d)==10: e164 = "+90"+d
-          else: e164 = "+"+d
-          to = "whatsapp:"+e164
-          FROM = "whatsapp:+17372508034"
-          auth = base64.b64encode(f"{sid}:{tok}".encode()).decode()
-
-          def req(url, data=None, method="GET"):
-              body = urllib.parse.urlencode(data).encode() if data else None
-              r = urllib.request.Request(url, data=body, method=method)
-              r.add_header("Authorization", "Basic "+auth)
-              if body: r.add_header("Content-Type","application/x-www-form-urlencoded")
-              try:
-                  with urllib.request.urlopen(r) as resp:
-                      return resp.status, json.loads(resp.read().decode())
-              except urllib.error.HTTPError as e:
-                  return e.code, json.loads(e.read().decode())
-
-          print("== Icerik (sablon) listesi ==")
-          st, data = req("https://content.twilio.com/v1/Content?PageSize=50")
-          appt_sid = None
-          for c in data.get("contents", []):
-              fn = c.get("friendly_name",""); cs = c.get("sid","")
-              print(f"  {cs}  {fn}")
-              if appt_sid is None and ("appointment" in fn.lower() or "reminder" in fn.lower()):
-                  appt_sid = cs
-          print("secilen sablon:", appt_sid)
-
-          msgurl = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
-
-          if appt_sid:
-              print("== 1) Sablonla gonderim (ContentSid) ==")
-              st, r = req(msgurl, {
-                  "From": FROM, "To": to,
-                  "ContentSid": appt_sid,
-                  "ContentVariables": json.dumps({"1":"7 Ekim","2":"15:00"}),
-              }, "POST")
-              print(st, json.dumps({k:r.get(k) for k in ("sid","status","error_code","message")}, ensure_ascii=False))
-
-          print("== 2) Serbest metin denemesi (24s penceresi testi) ==")
-          st, r = req(msgurl, {"From":FROM,"To":to,
-              "Body":"Oscar Spa — WhatsApp test ✅"}, "POST")
-          print(st, json.dumps({k:r.get(k) for k in ("sid","status","error_code","message")}, ensure_ascii=False))
+          import json, os
+          to=os.environ["TO"]; g=os.environ["GUEST"]; d=os.environ["GDATE"]
+          t=os.environ["GTIME"]; e=os.environ["GEND"]; s=os.environ["GSVC"]
+          musteri=f"Merhaba {g}, Oscar Spa randevunuz oluşturuldu:\n📅 {d} · ⏰ {t}\n💆 {s}\nGörüşmek üzere! 🌿"
+          terapist=f"🗓️ Yeni randevu\n{t}–{e} · {s}\nMisafir: {g} ({to})"
+          open("m1.json","w").write(json.dumps({"to":to,"body":musteri}, ensure_ascii=False))
+          open("m2.json","w").write(json.dumps({"to":to,"body":terapist}, ensure_ascii=False))
           PY
+          echo "== 1) Musteri onay mesaji =="
+          curl -s -X POST "$BASE" -H "Content-Type: application/json" --data-binary @m1.json; echo
+          echo "== 2) Terapist formatli mesaj (demo) =="
+          curl -s -X POST "$BASE" -H "Content-Type: application/json" --data-binary @m2.json; echo
