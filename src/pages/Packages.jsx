@@ -4,10 +4,11 @@ import { PageHead, Panel, Progress, Badge, Button, Stat, Modal } from '../compon
 import Icon from '../components/icons.jsx'
 
 export default function Packages() {
-  const { packages, fmtTRY, addPackage } = useStore()
+  const { packages, guests, fmtTRY, addPackage } = useStore()
   const [add, setAdd] = useState(false)
-  const totalValue = packages.reduce((s, p) => s + p.price, 0)
-  const active = packages.filter((p) => p.used < p.total).length
+  const totalValue = packages.reduce((s, p) => s + (Number(p.price) || 0), 0)
+  const active = packages.filter((p) => (p.used || 0) < (p.total || 0)).length
+  const guestName = (p) => p.guest || guests.find((g) => g.id === p.guestId)?.name || '—'
 
   return (
     <div className="page">
@@ -21,29 +22,35 @@ export default function Packages() {
       </div>
 
       <div className="grid g-2 section-gap">
+        {packages.length === 0 && (
+          <div className="card pad muted small">Henüz paketi olan misafir yok. “Yeni Paket Sat” ile paket/üyelik ekleyin.</div>
+        )}
         {packages.map((p) => {
-          const pct = Math.round((p.used / p.total) * 100)
-          const remain = p.total - p.used
+          const total = Number(p.total) || 0
+          const used = Number(p.used) || 0
+          const pct = total ? Math.round((used / total) * 100) : 0
+          const remain = Math.max(0, total - used)
           const low = remain <= 1
+          const price = Number(p.price) || 0
           return (
             <div key={p.id} className="card pad">
               <div className="between">
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 16.5, color: 'var(--forest-ink)' }}>{p.name}</div>
-                  <div className="muted small" style={{ marginTop: 3 }}>{p.guest}</div>
+                  <div style={{ fontWeight: 700, fontSize: 16.5, color: 'var(--forest-ink)' }}>{guestName(p)}</div>
+                  <div className="muted small" style={{ marginTop: 3 }}>{p.name}</div>
                 </div>
                 <Badge kind={low ? 'free' : 'sage'}>{remain} seans kaldı</Badge>
               </div>
               <div style={{ marginTop: 16 }}>
                 <div className="between" style={{ marginBottom: 6 }}>
                   <span className="muted small">Kullanım</span>
-                  <span className="small" style={{ fontWeight: 600 }}>{p.used} / {p.total}</span>
+                  <span className="small" style={{ fontWeight: 600 }}>{used} / {total} kullanıldı</span>
                 </div>
                 <Progress value={pct} kind={low ? 'danger' : ''} />
               </div>
               <div className="between" style={{ marginTop: 16 }}>
-                <span className="muted small center" style={{ gap: 5 }}><Icon.clock style={{ width: 14, height: 14 }} /> Son kullanma: {p.expiry}</span>
-                <span className="money">{fmtTRY(p.price)}</span>
+                <span className="muted small center" style={{ gap: 5 }}><Icon.clock style={{ width: 14, height: 14 }} /> Son kullanma: {p.expiry || 'Süresiz'}</span>
+                <span className="money">{price > 0 ? fmtTRY(price) : '—'}</span>
               </div>
             </div>
           )
