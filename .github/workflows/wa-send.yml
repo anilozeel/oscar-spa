@@ -6,46 +6,38 @@ on:
       to:
         description: "Alici numara"
         default: "0553 502 94 50"
-      guest:
-        description: "Misafir adi"
-        default: "Anıl Özel"
-      date:
-        description: "Tarih"
-        default: "7 Ekim"
-      time:
-        description: "Saat"
-        default: "15:00"
-      endtime:
-        description: "Bitis"
-        default: "16:30"
-      service:
-        description: "Hizmet"
-        default: "Klasik Masaj (Paket)"
 
 jobs:
   send:
     runs-on: ubuntu-latest
     steps:
-      - name: Mesajlari gonder (wa.php)
+      - name: Ornek sablonla gonderim (trial uyumlu)
         env:
+          TW_SID: ${{ secrets.TWILIO_SID }}
+          TW_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
           TO: ${{ github.event.inputs.to }}
-          GUEST: ${{ github.event.inputs.guest }}
-          GDATE: ${{ github.event.inputs.date }}
-          GTIME: ${{ github.event.inputs.time }}
-          GEND: ${{ github.event.inputs.endtime }}
-          GSVC: ${{ github.event.inputs.service }}
         run: |
-          BASE="https://www.oscarseasidehotel.com/spa/wa.php"
           python3 - <<'PY'
-          import json, os
-          to=os.environ["TO"]; g=os.environ["GUEST"]; d=os.environ["GDATE"]
-          t=os.environ["GTIME"]; e=os.environ["GEND"]; s=os.environ["GSVC"]
-          musteri=f"Merhaba {g}, Oscar Spa randevunuz oluşturuldu:\n📅 {d} · ⏰ {t}\n💆 {s}\nGörüşmek üzere! 🌿"
-          terapist=f"🗓️ Yeni randevu\n{t}–{e} · {s}\nMisafir: {g}"
-          open("m1.json","w").write(json.dumps({"to":to,"body":musteri}, ensure_ascii=False))
-          open("m2.json","w").write(json.dumps({"to":to,"body":terapist}, ensure_ascii=False))
+          import os, json, base64, urllib.request, urllib.parse, urllib.error, re
+          sid=os.environ["TW_SID"]; tok=os.environ["TW_TOKEN"]
+          d=re.sub(r"\D","",os.environ["TO"])
+          e164 = "+"+d if d.startswith("90") else ("+90"+d[1:] if d.startswith("0") else ("+90"+d if len(d)==10 else "+"+d))
+          FROM="whatsapp:+17372508034"; TO="whatsapp:"+e164
+          auth=base64.b64encode(f"{sid}:{tok}".encode()).decode()
+          url=f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
+          # Twilio'nun herkese acik ornek sablonu: "Your appointment is coming up on {{1}} at {{2}}"
+          CSID="HXb5b62575e6e4ff6129ad7c8efe1f983e"
+          sends=[
+            ("MUSTERI", {"1":"7 Ekim","2":"15:00 - Klasik Masaj (Paket)"}),
+            ("TERAPIST", {"1":"7 Ekim - Yeni randevu (Anıl Özel)","2":"15:00 Klasik Masaj (Paket)"}),
+          ]
+          for label,vars in sends:
+              data=urllib.parse.urlencode({"From":FROM,"To":TO,"ContentSid":CSID,"ContentVariables":json.dumps(vars)}).encode()
+              r=urllib.request.Request(url,data=data,method="POST")
+              r.add_header("Authorization","Basic "+auth)
+              r.add_header("Content-Type","application/x-www-form-urlencoded")
+              try:
+                  with urllib.request.urlopen(r) as resp: code,body=resp.status,json.loads(resp.read().decode())
+              except urllib.error.HTTPError as ex: code,body=ex.code,json.loads(ex.read().decode())
+              print(f"== {label} (HTTP {code}) ==", json.dumps({k:body.get(k) for k in ("sid","status","error_code","message")}, ensure_ascii=False))
           PY
-          echo "== 1) Musteri onay mesaji =="
-          curl -s -X POST "$BASE" -H "Content-Type: application/json" --data-binary @m1.json; echo
-          echo "== 2) Terapist formatli mesaj (demo) =="
-          curl -s -X POST "$BASE" -H "Content-Type: application/json" --data-binary @m2.json; echo
