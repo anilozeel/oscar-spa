@@ -310,6 +310,41 @@ export function StoreProvider({ children }) {
     [appointments]
   )
 
+  // --- Yedekleme: tüm verileri JSON olarak indir / geri yükle ---------------
+  const exportBackup = useCallback(() => {
+    const data = {
+      _app: 'oscarspa', _version: 1, _exportedAt: new Date().toISOString(),
+      counts: { guests: guests.length, appointments: appointments.length, packages: packages.length, sales: sales.length, commissions: commissions.length },
+      guests, packages, appointments, sales, commissions,
+    }
+    try {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const z = (n) => String(n).padStart(2, '0'); const d = new Date()
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `oscarspa-yedek-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.json`
+      document.body.appendChild(a); a.click(); a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      toast('Yedek indirildi')
+    } catch { toast('Yedek alınamadı', 'warn') }
+  }, [guests, packages, appointments, sales, commissions, toast])
+
+  const importBackup = useCallback(async (obj) => {
+    if (!obj || obj._app !== 'oscarspa' || typeof obj !== 'object') { toast('Geçersiz yedek dosyası', 'warn'); return false }
+    if (!FIREBASE_ENABLED) { toast('Bulut kapalı; geri yükleme yapılamaz', 'warn'); return false }
+    const colls = ['guests', 'packages', 'appointments', 'sales', 'commissions']
+    let n = 0
+    try {
+      for (const c of colls) {
+        const rows = Array.isArray(obj[c]) ? obj[c] : []
+        for (const r of rows) { if (r && r.id) { const { id, ...rest } = r; await fsSet(c, id, rest); n++ } }
+      }
+      toast(`Geri yükleme tamam: ${n} kayıt`)
+      return true
+    } catch { toast('Geri yükleme sırasında hata', 'warn'); return false }
+  }, [toast])
+
   const value = {
     ...mock,
     FIREBASE_ENABLED,
@@ -319,6 +354,7 @@ export function StoreProvider({ children }) {
     packages, addPackage, activePackageFor,
     guests, addGuest,
     sales, commissions,
+    exportBackup, importBackup,
     toast, toasts,
     sidebarOpen, setSidebarOpen,
   }

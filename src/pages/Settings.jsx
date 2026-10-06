@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useStore } from '../state/store.jsx'
 import { PageHead, Panel, Badge, Chip, Avatar, Button } from '../components/ui.jsx'
 import Icon from '../components/icons.jsx'
@@ -22,8 +22,18 @@ function Toggle({ on, onChange }) {
 }
 
 export default function Settings() {
-  const { ROLES, toast } = useStore()
+  const { ROLES, toast, exportBackup, importBackup, guests, appointments, packages, sales } = useStore()
   const [integrations, setIntegrations] = useState({ pms: true, whatsapp: true, online: false, ai: false })
+  const fileRef = useRef(null)
+  const onRestoreFile = (e) => {
+    const f = e.target.files && e.target.files[0]; e.target.value = ''
+    if (!f) return
+    if (!window.confirm('Seçilen yedek dosyasındaki kayıtlar buluta geri yüklenecek (aynı kimlikli kayıtların üzerine yazar). Devam edilsin mi?')) return
+    const reader = new FileReader()
+    reader.onload = () => { try { importBackup(JSON.parse(reader.result)) } catch { toast('Dosya okunamadı', 'warn') } }
+    reader.onerror = () => toast('Dosya okunamadı', 'warn')
+    reader.readAsText(f)
+  }
 
   const INTS = [
     { id: 'pms', name: 'PMS / Folyo', desc: 'Otel odası ve folyo entegrasyonu — odaya yazdırma', icon: 'pms', tag: 'Öncelik' },
@@ -108,6 +118,22 @@ export default function Settings() {
               </div>
             )
           })}
+        </div>
+      </Panel>
+
+      <Panel className="section-gap" title="Yedekleme">
+        <div className="muted small" style={{ marginBottom: 12, lineHeight: 1.5 }}>
+          Tüm veriler (misafirler, randevular, paketler, satışlar, primler) Firestore bulutunda tutulur ve cihazlar arası senkrondur.
+          Ekstra güvenlik için — kazara silme / yanlışlıkla değişiklik ihtimaline karşı — dilediğin zaman tam yedeği indirip saklayabilirsin
+          (bilgisayar, Google Drive vb.). Haftada bir indirmen önerilir.
+        </div>
+        <div className="center gap-sm" style={{ flexWrap: 'wrap' }}>
+          <Button icon="shield" onClick={exportBackup}>Yedek Al (indir)</Button>
+          <Button variant="ghost" onClick={() => fileRef.current && fileRef.current.click()}>Yedekten Geri Yükle</Button>
+          <input ref={fileRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={onRestoreFile} />
+        </div>
+        <div className="muted small" style={{ marginTop: 12 }}>
+          Mevcut veri: <b>{guests.length}</b> misafir · <b>{appointments.length}</b> randevu · <b>{packages.length}</b> paket · <b>{sales.length}</b> satış
         </div>
       </Panel>
     </div>

@@ -75,13 +75,6 @@ export default function Login() {
           <Button block type="submit" icon="chevronR" style={{ marginTop: 22 }} disabled={busy}>
             {busy ? 'Giriş yapılıyor…' : 'Panele giriş yap'}
           </Button>
-
-          <div className="login-hint">
-            <div className="lh-title">Demo hesaplar</div>
-            <div className="lh-row"><b>Yönetici</b><span>cigdem / cigdem123</span></div>
-            <div className="lh-row"><b>Terapist</b><span>dita / dita123</span></div>
-            <div className="lh-row"><b>Terapist</b><span>sitti / sitti123</span></div>
-          </div>
         </form>
       </div>
     </div>
