@@ -6,6 +6,7 @@ import Icon from '../components/icons.jsx'
 const PAY = [
   { id: 'cash', label: 'Nakit', icon: 'cash', variant: 'sage' },
   { id: 'card', label: 'Kredi Kartı', icon: 'card', variant: 'sage' },
+  { id: 'transfer', label: 'Havale', icon: 'finance', variant: 'sage' },
   { id: 'folio', label: 'Odaya Yaz', icon: 'room', variant: 'gold' },
   { id: 'package', label: 'Paketten Düş', icon: 'package', variant: 'sage' },
 ]
