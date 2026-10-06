@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useStore } from '../state/store.jsx'
 import { PageHead, Panel, Avatar, Chip, Progress, Badge } from '../components/ui.jsx'
 import Icon from '../components/icons.jsx'
@@ -11,7 +12,21 @@ const RULE_FLOW = [
 ]
 
 export default function Therapists() {
-  const { therapists, COMMISSION_RULES, fmtUSD, fmtTRY, commissions } = useStore()
+  const { therapists, COMMISSION_RULES, fmtUSD, commissions } = useStore()
+
+  // Canlı per-terapist istatistik (statik mock yerine gerçek primlerden)
+  const stats = useMemo(() => {
+    const m = {}
+    for (const t of therapists) m[t.id] = { count: 0, usd: 0 }
+    for (const c of commissions) {
+      if (!m[c.therapistId]) m[c.therapistId] = { count: 0, usd: 0 }
+      m[c.therapistId].count++
+      m[c.therapistId].usd += Number(c.usd) || 0
+    }
+    const maxCount = Math.max(1, ...Object.values(m).map((s) => s.count))
+    for (const k of Object.keys(m)) m[k].load = Math.round((m[k].count / maxCount) * 100)
+    return m
+  }, [therapists, commissions])
 
   return (
     <div className="page">
@@ -33,12 +48,12 @@ export default function Therapists() {
                 </div>
               </div>
               <div className="between" style={{ marginTop: 14 }}>
-                <span className="muted small">Bugün {t.todayCount} işlem · ⭐ {t.rating}</span>
-                <span className="money" style={{ color: 'var(--gold-deep)' }}>{fmtUSD(t.monthCommissionUsd)} <span className="muted small">/ ay</span></span>
+                <span className="muted small">{stats[t.id]?.count || 0} işlem · ⭐ {t.rating}</span>
+                <span className="money" style={{ color: 'var(--gold-deep)' }}>{fmtUSD(stats[t.id]?.usd || 0)} <span className="muted small">toplam prim</span></span>
               </div>
               <div style={{ marginTop: 10 }}>
-                <div className="between" style={{ marginBottom: 5 }}><span className="muted small">Doluluk</span><span className="small" style={{ fontWeight: 600 }}>%{t.load}</span></div>
-                <Progress value={t.load} kind={t.load > 80 ? 'gold' : ''} />
+                <div className="between" style={{ marginBottom: 5 }}><span className="muted small">İş yükü payı</span><span className="small" style={{ fontWeight: 600 }}>%{stats[t.id]?.load || 0}</span></div>
+                <Progress value={stats[t.id]?.load || 0} kind={(stats[t.id]?.load || 0) > 80 ? 'gold' : ''} />
               </div>
             </div>
           ))}
@@ -81,7 +96,7 @@ export default function Therapists() {
       </div>
 
       {/* Yazılan primler (canlı) */}
-      <Panel className="section-gap" title="Yazılan Primler (bugün)" action={<Chip kind="gold">{commissions.length} kayıt</Chip>}>
+      <Panel className="section-gap" title="Yazılan Primler" action={<Chip kind="gold">{commissions.length} kayıt</Chip>}>
         {commissions.length ? (
           <table className="table">
             <thead><tr><th>Terapist</th><th>İşlem tipi</th><th className="num">Prim (USD)</th><th>Durum</th></tr></thead>

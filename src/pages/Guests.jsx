@@ -5,7 +5,7 @@ import { PageHead, Panel, Badge, Chip, Avatar, Button, Modal } from '../componen
 import Icon from '../components/icons.jsx'
 
 export default function Guests() {
-  const { guests, addGuest, appointments, fmtTRY } = useStore()
+  const { guests, addGuest, sales, fmtTRY } = useStore()
   const nav = useNavigate()
   const [sel, setSel] = useState(guests[0]?.id || null)
   const [q, setQ] = useState('')
@@ -13,10 +13,11 @@ export default function Guests() {
 
   const list = guests.filter((x) => x.name.toLowerCase().includes(q.toLowerCase()) || (x.phone || '').includes(q))
   const g = guests.find((x) => x.id === sel) || guests[0] || null
-  const history = g ? appointments.filter((a) => a.guestId === g.id) : []
+  // Geçmiş işlemler & toplamlar: adisyonlardan (satışlardan) misafir adına göre
+  const history = g ? sales.filter((s) => (s.guest || '').trim().toLowerCase() === (g.name || '').trim().toLowerCase()) : []
   const totalVisits = history.length
-  const totalSpend = history.filter((a) => a.status === 'done').reduce((s, a) => s + (a.price || 0), 0)
-  const lastVisit = history.length ? [...history].sort((a, b) => b.time.localeCompare(a.time))[0].time : '—'
+  const totalSpend = history.reduce((s, x) => s + (Number(x.amount) || 0), 0)
+  const lastVisit = history.length ? [...history].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0].date : '—'
 
   return (
     <div className="page">
@@ -82,14 +83,14 @@ export default function Guests() {
             </Panel>
 
             <Panel title="Geçmiş işlemler" action={<Chip>{history.length}</Chip>}>
-              {history.length ? [...history].sort((a, b) => a.time.localeCompare(b.time)).map((h) => (
+              {history.length ? [...history].sort((a, b) => String(b.date).localeCompare(String(a.date))).map((h) => (
                 <div key={h.id} className="list-row">
-                  <div className="chip ghost" style={{ minWidth: 62, justifyContent: 'center' }}>{h.time}</div>
+                  <div className="chip ghost" style={{ minWidth: 86, justifyContent: 'center' }}>{h.date || '—'}</div>
                   <div className="grow">
                     <div style={{ fontWeight: 600, color: 'var(--forest-ink)' }}>{h.service}</div>
                     <div className="muted small">{h.therapist || 'Terapistsiz'}</div>
                   </div>
-                  <div className="money">{h.price ? fmtTRY(h.price) : '₺0'}</div>
+                  <div className="money">{h.amount ? fmtTRY(h.amount) : '₺0'}</div>
                 </div>
               )) : <p className="muted small">Bu misafir için kayıt yok.</p>}
             </Panel>
