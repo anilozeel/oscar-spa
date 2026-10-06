@@ -9,6 +9,13 @@ name: Deploy to oscarseasidehotel.com/spa (FTP)
 #   FTP_USERNAME = oscarse1
 #   FTP_PASSWORD = (FTP sifresi)
 # Bu uc secret eklenince her push otomatik yayinlanir.
+#
+# WhatsApp (Twilio) icin (bir kez) ayrica:
+#   TWILIO_SID        = AC... (Account SID)
+#   TWILIO_AUTH_TOKEN = ...   (Auth Token - GIZLI)
+#   TWILIO_FROM       = whatsapp:+17372508034  (opsiyonel; bos ise sandbox numarasi)
+# Bu secret'ler eklenince deploy sirasinda public_html/spa/wa.config.json
+# otomatik olusturulur; token repoya/tarayiciya girmez.
 
 on:
   push:
@@ -36,6 +43,23 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build
+
+      - name: Twilio WhatsApp config olustur (gizli, loglanmaz)
+        env:
+          TW_SID: ${{ secrets.TWILIO_SID }}
+          TW_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TW_FROM: ${{ secrets.TWILIO_FROM }}
+        run: |
+          FROM="${TW_FROM:-whatsapp:+17372508034}"
+          cat > dist/wa.config.json <<EOF
+          {
+            "sid": "${TW_SID}",
+            "token": "${TW_TOKEN}",
+            "from": "${FROM}",
+            "key": ""
+          }
+          EOF
+          echo "wa.config.json olusturuldu (sid uzunluk: ${#TW_SID}, token uzunluk: ${#TW_TOKEN}, from: ${FROM})"
 
       - name: Yukle - /spa (FTP)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
