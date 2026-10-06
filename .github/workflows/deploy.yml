@@ -1,55 +1,49 @@
-name: Deploy to GitHub Pages
+name: Deploy to oscarseasidehotel.com/spa (FTP)
+
+# Vite+React build -> public_html/spa (GuzelHosting FTP).
+# https://www.oscarseasidehotel.com/spa adresinde yayinlanir.
+# HashRouter + base './' oldugundan alt yolda rewrite/htaccess gerekmez.
+#
+# GEREKEN (bir kez): Settings > Secrets and variables > Actions altinda
+#   FTP_SERVER   = mt-kratos.guzelhosting.com
+#   FTP_USERNAME = oscarse1
+#   FTP_PASSWORD = (FTP sifresi)
+# Bu uc secret eklenince her push otomatik yayinlanir.
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: ftp-deploy-spa
+  cancel-in-progress: false
 
 jobs:
-  build:
+  build-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Node kurulumu
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Bagimliliklar + build
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
 
-      - name: Build
-        run: npm run build
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
+      - name: Yukle - /spa (FTP)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          enablement: true
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./dist/
+          server-dir: ./public_html/spa/
