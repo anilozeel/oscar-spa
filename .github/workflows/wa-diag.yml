@@ -7,7 +7,7 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Son mesajlari dok (ContentSid bul)
+      - name: Sablon mesajin tam kaydi
         env:
           TW_SID: ${{ secrets.TWILIO_SID }}
           TW_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
@@ -21,11 +21,8 @@ jobs:
               try:
                   with urllib.request.urlopen(r) as resp: return resp.status, resp.read().decode()
               except urllib.error.HTTPError as e: return e.code, e.read().decode()
-          st,body=get(f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json?PageSize=10")
+          mid="MM4495dab04f720de131e0fedaa5986173"
+          st,body=get(f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages/{mid}.json")
           print("HTTP", st)
-          j=json.loads(body)
-          for m in j.get("messages",[]):
-              print("----")
-              for k in ("sid","direction","status","from","to","body","content_sid","messaging_service_sid","date_sent"):
-                  if k in m: print(f"  {k}: {m.get(k)}")
+          print(body)
           PY
