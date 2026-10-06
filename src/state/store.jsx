@@ -12,6 +12,8 @@ export const useStore = () => useContext(StoreCtx)
 const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
 const overlap = (aS, aE, bS, bE) => toMin(aS) < toMin(bE) && toMin(bS) < toMin(aE)
 const uid = () => 'x' + Math.random().toString(36).slice(2, 8)
+const ymd = (d = new Date()) => { const x = new Date(d); const z = (n) => String(n).padStart(2, '0'); return `${x.getFullYear()}-${z(x.getMonth() + 1)}-${z(x.getDate())}` }
+const apptDay = (a) => (a.date || ymd(new Date(a.createdAt || Date.now())))
 // Firestore undefined kabul etmez — undefined alanları at
 const clean = (o) => { const r = {}; for (const k in o) if (o[k] !== undefined) r[k] = o[k]; return r }
 
@@ -190,10 +192,7 @@ export function StoreProvider({ children }) {
 
   const addAppointment = useCallback((draft) => {
     const conflict = findConflict(draft)
-    if (conflict) {
-      toast(`${conflict.name} bu saatte dolu — çakışma engellendi`, 'warn')
-      return false
-    }
+    if (conflict) toast(`Not: ${conflict.name} bu saatte dolu — yine de randevu alındı`, 'warn')
     const g = draft.guest ? findOrCreateGuest({ name: draft.guest, phone: draft.phone }) : null
     const appt = { ...draft, id: uid(), guestId: draft.guestId || g?.id || null, hidden: false, createdAt: Date.now() }
     if (FIREBASE_ENABLED) fsSet('appointments', appt.id, appt).catch(() => toast('Randevu kaydedilemedi', 'warn'))
@@ -215,10 +214,7 @@ export function StoreProvider({ children }) {
     if (!cur) return false
     const draft = { ...cur, ...patch }
     const conflict = findConflict({ time: draft.time, end: draft.end, therapistId: draft.therapistId }, id)
-    if (conflict) {
-      toast(`${conflict.name} bu saatte dolu — çakışma engellendi`, 'warn')
-      return false
-    }
+    if (conflict) toast(`Not: ${conflict.name} bu saatte dolu — yine de taşındı`, 'warn')
     let finalPatch = patch
     if (patch.guest) {
       const g = findOrCreateGuest({ name: patch.guest, phone: patch.phone ?? cur.phone })
@@ -261,15 +257,15 @@ export function StoreProvider({ children }) {
       service: serviceName, amount,
       therapist: isFree ? '—' : (therapist?.name || appt.therapist || '—'),
       therapistId: isFree ? null : therapistId,
-      payType, commissionUsd, date: 'Bugün', archived: true, createdAt: Date.now(),
+      payType, commissionUsd, date: ymd(), archived: true, createdAt: Date.now(),
     }
     const commission = (!isFree && commissionUsd > 0)
-      ? { id: uid(), saleId: sale.id, therapistId, therapist: therapist?.name || '', type: effType, usd: commissionUsd, paid: false, date: 'Bugün', createdAt: Date.now() }
+      ? { id: uid(), saleId: sale.id, therapistId, therapist: therapist?.name || '', type: effType, usd: commissionUsd, paid: false, date: ymd(), createdAt: Date.now() }
       : null
+    // Ödeme tamamlanınca randevu takvimden çıkar (hidden) ve Adisyonlar arşivine düşer.
     const apptPatch = {
-      status: 'done', pay: payType, service: serviceName, price: amount,
+      status: 'done', pay: payType, service: serviceName, price: amount, hidden: true,
       therapistId: isFree ? null : therapistId, therapist: isFree ? null : (therapist?.name || appt.therapist || null),
-      ...(hideAfter ? { hidden: true } : {}),
     }
 
     if (FIREBASE_ENABLED) {
@@ -345,8 +341,32 @@ export function StoreProvider({ children }) {
     } catch { toast('Geri yükleme sırasında hata', 'warn'); return false }
   }, [toast])
 
+  // Bugünün randevuları (takvim tarih modeline göre; kapanmış/gizli hariç)
+  const todayAppointments = useMemo(() => {
+    const t = ymd()
+    return appointments.filter((a) => !a.hidden && a.status !== 'done' && apptDay(a) === t)
+  }, [appointments])
+
+  // Canlı KPI'lar (statik mock yerine gerçek veriden)
+  const liveKpis = useMemo(() => {
+    const t = ymd()
+    const todaySales = sales.filter((s) => String(s.date || '').slice(0, 10) === t)
+    const revenue = todaySales.reduce((x, s) => x + (Number(s.amount) || 0), 0)
+    const closed = todaySales.length
+    const basket = closed ? Math.round(revenue / closed) : 0
+    const apptsToday = appointments.filter((a) => apptDay(a) === t)
+    return {
+      revenue: { label: 'Günlük Ciro', value: mock.fmtTRY(revenue), delta: null },
+      occupancy: { label: 'Doluluk', value: '—', delta: null },
+      appts: { label: 'Bugünkü Randevu', value: String(apptsToday.length), delta: null },
+      guests: { label: 'Misafir Sayısı', value: String(guests.length), delta: null },
+      basket: { label: 'Ortalama Sepet', value: mock.fmtTRY(basket), delta: null },
+    }
+  }, [sales, appointments, guests])
+
   const value = {
     ...mock,
+    KPIS: liveKpis, todayAppointments,
     FIREBASE_ENABLED,
     user, login, logout, canAccess,
     appointments, visibleAppointments, addAppointment, cancelAppointment, updateAppointment, findConflict, closeTicket,

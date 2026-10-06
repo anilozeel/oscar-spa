@@ -54,8 +54,8 @@ export const commissionFor = (type) =>
 //   • Sadece Masaj (50 dk)            -> price     , prim: massage
 //   • Paket (50 dk masaj + 30 dk kese & köpük · sauna, hamam, maske & içecek dahil)
 //                                     -> pkgPrice  , prim: package
-export const PACKAGE_DURATION = 80
-export const PACKAGE_INFO = '50 dk masaj + 30 dk kese & köpük · sauna, hamam, maske & içecek dahil'
+export const PACKAGE_DURATION = 90
+export const PACKAGE_INFO = '50 dk masaj + 30 dk kese & köpük + 10 dk hazırlık/duş · sauna, hamam, maske & içecek dahil'
 export const SOLO_INFO = '50 dakika masaj'
 
 export const services = [
@@ -139,7 +139,7 @@ export const sampleTicket = {
 export const aiSuggestions = []
 
 // ---- Zaman aralıkları (takvim) -----------------------------------------------
-export const HOURS = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00']
+export const HOURS = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00']
 
 // ---- Yardımcılar -------------------------------------------------------------
 export const fmtTRY = (n) =>

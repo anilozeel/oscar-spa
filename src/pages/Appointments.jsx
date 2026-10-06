@@ -8,12 +8,15 @@ const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + 
 const fmtMin = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 const addMin = (t, m) => fmtMin(toMin(t) + m)
 const phoneOk = (p) => String(p || '').replace(/\D/g, '').length >= 7
+const ymd = (d) => { const x = new Date(d); const z = (n) => String(n).padStart(2, '0'); return `${x.getFullYear()}-${z(x.getMonth() + 1)}-${z(x.getDate())}` }
+// Randevunun gün anahtarı: date alanı yoksa oluşturulma gününe bağla (eski kayıtlar takvimde kaymasın)
+const apptDay = (a) => a.date || ymd(new Date(a.createdAt || Date.now()))
 
 const SLOTS = []
-for (let h = 9; h <= 20; h++) { SLOTS.push(`${String(h).padStart(2, '0')}:00`); if (h < 20) SLOTS.push(`${String(h).padStart(2, '0')}:30`) }
+for (let h = 9; h <= 22; h++) { SLOTS.push(`${String(h).padStart(2, '0')}:00`); if (h < 22) SLOTS.push(`${String(h).padStart(2, '0')}:30`) }
 
 const DAY_START = 9 * 60
-const DAY_END = 22 * 60
+const DAY_END = 23 * 60
 const PXPM = 1
 const GRID = []
 for (let m = DAY_START; m < DAY_END; m += 30) GRID.push({ min: m, label: fmtMin(m), hour: m % 60 === 0 })
@@ -37,10 +40,11 @@ export default function Appointments() {
   const [hidden, setHidden] = useState(() => new Set())
 
   const base = new Date(); base.setDate(base.getDate() + offset)
+  const dateStr = ymd(base)
   const dateLabel = base.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  const dayAppts = offset === 0
-    ? (isTherapist ? visibleAppointments.filter((a) => a.therapistId === myId) : visibleAppointments)
-    : []
+  // O güne ait, ödemesi kapanmamış (done olmayan) randevular. Ödenen/kapanan takvimde görünmez.
+  const dayAppts = visibleAppointments.filter((a) =>
+    a.status !== 'done' && apptDay(a) === dateStr && (!isTherapist || a.therapistId === myId))
   const calTherapists = isTherapist
     ? therapists.filter((t) => t.id === myId)
     : therapists.filter((t) => t.active && !hidden.has(t.id))
@@ -63,7 +67,7 @@ export default function Appointments() {
   }
 
   const openNew = (colId, min) => {
-    setPrefill({ therapistId: colId === 'none' ? null : colId, time: fmtMin(min) })
+    setPrefill({ therapistId: colId === 'none' ? null : colId, time: fmtMin(min), date: dateStr })
     setOpen(true)
   }
 
@@ -78,7 +82,7 @@ export default function Appointments() {
               <button className={view === 'day' ? 'on' : ''} onClick={() => setView('day')}>Günlük görünüm</button>
               <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>Liste</button>
             </div>
-            {!isTherapist && <Button icon="plus" onClick={() => { setPrefill(null); setOpen(true) }}>Yeni Randevu</Button>}
+            {!isTherapist && <Button icon="plus" onClick={() => { setPrefill({ date: dateStr }); setOpen(true) }}>Yeni Randevu</Button>}
           </div>
         }
       />
@@ -102,7 +106,7 @@ export default function Appointments() {
       </div>
 
       {view === 'day' ? (
-        <DayCalendar appts={dayAppts} therapists={calTherapists} onPick={setDetail} onReschedule={onReschedule} onNewAt={openNew} canEdit={!isTherapist} empty={offset !== 0} />
+        <DayCalendar appts={dayAppts} therapists={calTherapists} onPick={setDetail} onReschedule={onReschedule} onNewAt={openNew} canEdit={!isTherapist} empty={!dayAppts.length} />
       ) : (
         <Panel className="section-gap" title={dateLabel}>
           <table className="table">
@@ -237,7 +241,7 @@ function DayCalendar({ appts, therapists, onPick, onReschedule, onNewAt, canEdit
                 {GRID.map((g) => <div key={g.min} className={`tcal-slot ${g.hour ? 'hour' : ''}`} style={{ height: 30 }} />)}
                 {list.map((a) => {
                   const top = (toMin(a.time) - DAY_START) * PXPM
-                  const h = Math.max((toMin(a.end) - toMin(a.time)) * PXPM, 26)
+                  const h = Math.max((toMin(a.end) - toMin(a.time)) * PXPM, 42)
                   const handlers = canEdit
                     ? { onPointerDown: (e) => onPointerDown(e, a, ci), onPointerMove, onPointerUp, onPointerCancel }
                     : { onClick: () => onPick(a) }
@@ -457,9 +461,8 @@ function NewAppointment({ store, prefill, onClose }) {
   const end = svc ? addMin(time, duration) : time
   const draftBase = { time, end }
 
-  const freeTherapists = useMemo(() =>
-    therapists.filter((t) => t.active && !findConflict({ ...draftBase, therapistId: t.id })),
-    [time, end, therapists])
+  // Çakışma olsa bile randevu alınabilsin → tüm aktif terapistler listelenir.
+  const freeTherapists = useMemo(() => therapists.filter((t) => t.active), [therapists])
 
   const STEPS = isFree
     ? ['Hizmet', 'Süre & Saat', 'Onay']
@@ -473,6 +476,7 @@ function NewAppointment({ store, prefill, onClose }) {
 
   const confirm = () => {
     const ok = addAppointment({
+      date: prefill?.date || ymd(new Date()),
       time, end, serviceId: svc.id, service: svc.name,
       variant: svc.hasPackage ? variant : null, commissionType,
       therapistId: isFree ? null : therapistId,

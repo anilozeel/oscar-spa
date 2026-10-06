@@ -120,10 +120,7 @@ function Adisyon({ appt, store, onClose }) {
   return (
     <Modal title={`Adisyon #${appt.id.toUpperCase().slice(0, 6)}`} sub={`Misafir: ${appt.guest}${appt.phone ? ' · ' + appt.phone : ''}`} onClose={onClose} wide
       footer={<>
-        <label className="center gap-sm small muted" style={{ marginRight: 'auto', cursor: 'pointer' }}>
-          <input type="checkbox" checked={hideAfter} onChange={(e) => setHideAfter(e.target.checked)} />
-          Ödemeden sonra takvimden gizle
-        </label>
+        <span className="small muted" style={{ marginRight: 'auto' }}>Ödeme tamamlanınca randevu takvimden kalkar, Adisyonlar arşivine düşer.</span>
         <Button variant="ghost" onClick={onClose}>Vazgeç</Button>
         <Button icon="check" disabled={!canFinish} onClick={finish}>Ödemeyi Tamamla</Button>
       </>}>

@@ -621,8 +621,8 @@ textarea.input { resize: vertical; min-height: 84px; }
 .tcal-appt { position: absolute; left: 4px; right: 4px; border: none; border-radius: 9px; padding: 6px 9px; color: #fff; text-align: left; overflow: hidden; box-shadow: var(--shadow-sm); transition: filter .12s, transform .1s; }
 .tcal-appt:hover { filter: brightness(1.06); }
 .tcal-appt:active { transform: scale(.995); }
-.tcal-appt .ta-time { font-size: 11px; opacity: .92; }
-.tcal-appt .ta-name { font-weight: 600; font-size: 12.5px; line-height: 1.25; margin-top: 1px; }
+.tcal-appt .ta-time { font-size: 11px; opacity: .92; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tcal-appt .ta-name { font-weight: 600; font-size: 12.5px; line-height: 1.25; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 680px) { .cal-date { min-width: 0; font-size: 13.5px; } }
 .tcal-appt { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
 .tcal-appt:active { cursor: grabbing; }

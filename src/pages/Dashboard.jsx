@@ -4,6 +4,7 @@ import { Panel, Stat, Badge } from '../components/ui.jsx'
 import Icon from '../components/icons.jsx'
 
 const TODAY = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric', weekday: 'long' })
+const ymd = (d = new Date()) => { const x = new Date(d); const z = (n) => String(n).padStart(2, '0'); return `${x.getFullYear()}-${z(x.getMonth() + 1)}-${z(x.getDate())}` }
 const greet = () => {
   const h = new Date().getHours()
   if (h < 11) return 'Günaydın'
@@ -32,10 +33,10 @@ const statusLabel = (s) => s === 'done' ? 'Tamamlandı' : s === 'inservice' ? '�
 
 // ---- Terapist paneli (para yok) ---------------------------------------------
 function TherapistDashboard({ store, nav }) {
-  const { user, visibleAppointments } = store
-  const mine = visibleAppointments.filter((a) => a.therapistId === user.therapistId)
-  const upcoming = mine.filter((a) => a.status !== 'done').sort((a, b) => a.time.localeCompare(b.time))
-  const done = mine.filter((a) => a.status === 'done').length
+  const { user, todayAppointments, appointments } = store
+  const mine = todayAppointments.filter((a) => a.therapistId === user.therapistId)
+  const upcoming = [...mine].sort((a, b) => a.time.localeCompare(b.time))
+  const done = appointments.filter((a) => a.therapistId === user.therapistId && a.status === 'done' && (a.date || '').slice(0, 10) === ymd()).length
   const next = upcoming[0]
 
   return (
@@ -74,11 +75,11 @@ function TherapistDashboard({ store, nav }) {
 export default function Dashboard() {
   const nav = useNavigate()
   const store = useStore()
-  const { user, visibleAppointments, KPIS } = store
+  const { user, KPIS, todayAppointments } = store
 
   if (user?.role === 'therapist') return <TherapistDashboard store={store} nav={nav} />
 
-  const today = visibleAppointments.filter((a) => a.status !== 'done')
+  const today = todayAppointments
 
   return (
     <div className="page">
