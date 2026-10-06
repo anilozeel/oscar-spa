@@ -1,0 +1,55 @@
+name: WhatsApp test gonder
+
+on:
+  workflow_dispatch:
+    inputs:
+      to:
+        description: "Alici numara"
+        default: "0553 502 94 50"
+      guest:
+        description: "Misafir adi"
+        default: "Anıl Özel"
+      date:
+        description: "Tarih etiketi"
+        default: "7 Ekim"
+      time:
+        description: "Saat"
+        default: "15:00"
+      endtime:
+        description: "Bitis"
+        default: "16:30"
+      service:
+        description: "Hizmet"
+        default: "Klasik Masaj (Paket)"
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mesajlari gonder (wa.php uzerinden)
+        env:
+          TO: ${{ github.event.inputs.to }}
+          GUEST: ${{ github.event.inputs.guest }}
+          GDATE: ${{ github.event.inputs.date }}
+          GTIME: ${{ github.event.inputs.time }}
+          GEND: ${{ github.event.inputs.endtime }}
+          GSVC: ${{ github.event.inputs.service }}
+        run: |
+          BASE="https://www.oscarseasidehotel.com/spa/wa.php"
+          python3 - <<'PY'
+          import json, os
+          to   = os.environ["TO"]
+          guest= os.environ["GUEST"]
+          d    = os.environ["GDATE"]
+          t    = os.environ["GTIME"]
+          end  = os.environ["GEND"]
+          svc  = os.environ["GSVC"]
+          musteri = f"Merhaba {guest}, Oscar Spa randevunuz oluşturuldu:\n📅 {d} · ⏰ {t}\n💆 {svc}\nGörüşmek üzere! 🌿"
+          terapist = f"🗓️ Yeni randevu\n{t}–{end} · {svc}\nMisafir: {guest} ({to})"
+          open("m1.json","w").write(json.dumps({"to":to,"body":musteri}, ensure_ascii=False))
+          open("m2.json","w").write(json.dumps({"to":to,"body":terapist}, ensure_ascii=False))
+          PY
+          echo "== 1) Musteri onay mesaji =="
+          curl -s -X POST "$BASE" -H "Content-Type: application/json" --data-binary @m1.json; echo
+          echo "== 2) Terapist formatli mesaj (demo) =="
+          curl -s -X POST "$BASE" -H "Content-Type: application/json" --data-binary @m2.json; echo
