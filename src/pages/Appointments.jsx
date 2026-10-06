@@ -441,7 +441,7 @@ function EditAppt({ appt, store, onClose }) {
 
 // ---- Yeni randevu akışı ------------------------------------------------------
 function NewAppointment({ store, prefill, onClose }) {
-  const { services, therapists, fmtTRY, addAppointment, findConflict,
+  const { services, therapists, fmtTRY, addAppointment, findConflict, guests,
           UNDECIDED_SERVICE, PACKAGE_DURATION, PACKAGE_INFO } = store
   const [step, setStep] = useState(0)
   const [svc, setSvc] = useState(null)
@@ -450,6 +450,15 @@ function NewAppointment({ store, prefill, onClose }) {
   const [therapistId, setTherapistId] = useState(prefill?.therapistId || null)
   const [guestName, setGuestName] = useState('')
   const [phone, setPhone] = useState('')
+  const [showSug, setShowSug] = useState(false)
+  // Misafir otomatik tamamlama: isme/telefona göre kayıtlı misafirler
+  const guestMatches = useMemo(() => {
+    const q = guestName.trim().toLocaleLowerCase('tr')
+    if (q.length < 2) return []
+    return (guests || []).filter((g) =>
+      (g.name || '').toLocaleLowerCase('tr').includes(q) || String(g.phone || '').includes(guestName.trim())
+    ).slice(0, 6)
+  }, [guests, guestName])
 
   const isFree = !!svc?.free
   const isUndecided = !!svc?.undecided
@@ -584,9 +593,23 @@ function NewAppointment({ store, prefill, onClose }) {
       {realStep === 'Onay' && (
         <div>
           <div className="grid g-2" style={{ gap: 14, marginBottom: 16 }}>
-            <div className="field">
+            <div className="field" style={{ position: 'relative' }}>
               <label>Misafir adı <span style={{ color: 'var(--danger)' }}>*</span></label>
-              <input className="input" autoFocus value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Örn. Ahmet Yılmaz" />
+              <input className="input" autoFocus value={guestName} autoComplete="off"
+                onChange={(e) => { setGuestName(e.target.value); setShowSug(true) }}
+                onFocus={() => setShowSug(true)}
+                onBlur={() => setTimeout(() => setShowSug(false), 150)}
+                placeholder="Örn. Ahmet Yılmaz" />
+              {showSug && guestMatches.length > 0 && (
+                <div className="guest-sug">
+                  {guestMatches.map((g) => (
+                    <button type="button" key={g.id} className="guest-sug-row"
+                      onMouseDown={(e) => { e.preventDefault(); setGuestName(g.name || ''); if (g.phone) setPhone(g.phone); setShowSug(false) }}>
+                      <b>{g.name}</b>{g.phone ? <span className="muted"> · {g.phone}</span> : null}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="field">
               <label>Telefon <span style={{ color: 'var(--danger)' }}>*</span></label>

@@ -341,6 +341,25 @@ export function StoreProvider({ children }) {
     } catch { toast('Geri yükleme sırasında hata', 'warn'); return false }
   }, [toast])
 
+  // --- Sıfırlama: koleksiyonlardaki belgeleri topluca sil -------------------
+  const _wipe = useCallback(async (groups, localSetters, msg) => {
+    if (FIREBASE_ENABLED) {
+      try { for (const [c, rows] of groups) { for (const r of rows) { if (r && r.id) await fsDelete(c, r.id) } } }
+      catch { toast('Silme sırasında hata', 'warn'); return false }
+    } else { localSetters.forEach((s) => s([])) }
+    toast(msg); return true
+  }, [toast])
+  // Geçmişi sil: randevu + satış + paket. PRİMLER ve MİSAFİRLER korunur.
+  const wipeHistory = useCallback(() => _wipe(
+    [['appointments', appointments], ['sales', sales], ['packages', packages]],
+    [setAppointments, setSales, setPackages], 'Geçmiş silindi (primler ve misafirler korundu)'
+  ), [_wipe, appointments, sales, packages])
+  // Her şeyi sıfırla: primler ve misafirler dahil.
+  const wipeAll = useCallback(() => _wipe(
+    [['appointments', appointments], ['sales', sales], ['packages', packages], ['commissions', commissions], ['guests', guests]],
+    [setAppointments, setSales, setPackages, setCommissions, setGuests], 'Tüm veriler sıfırlandı'
+  ), [_wipe, appointments, sales, packages, commissions, guests])
+
   // Bugünün randevuları (takvim tarih modeline göre; kapanmış/gizli hariç)
   const todayAppointments = useMemo(() => {
     const t = ymd()
@@ -374,7 +393,7 @@ export function StoreProvider({ children }) {
     packages, addPackage, activePackageFor,
     guests, addGuest,
     sales, commissions,
-    exportBackup, importBackup,
+    exportBackup, importBackup, wipeHistory, wipeAll,
     toast, toasts,
     sidebarOpen, setSidebarOpen,
   }

@@ -635,6 +635,12 @@ textarea.input { resize: vertical; min-height: 84px; }
 .tcal-ghost .ta-time { font-size: 11px; opacity: .92; }
 .tcal-ghost .ta-name { font-weight: 600; font-size: 12.5px; margin-top: 1px; }
 
+/* Misafir otomatik tamamlama açılır listesi */
+.guest-sug { position: absolute; left: 0; right: 0; top: 100%; z-index: 30; margin-top: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-md); overflow: hidden; max-height: 240px; overflow-y: auto; }
+.guest-sug-row { display: block; width: 100%; text-align: left; padding: 10px 12px; border: none; background: none; cursor: pointer; font-size: 14px; color: var(--forest-ink); }
+.guest-sug-row:hover { background: var(--sage-tint); }
+.guest-sug-row + .guest-sug-row { border-top: 1px solid var(--line-soft); }
+
 /* Giriş: hata + demo hesap ipucu */
 .login-err { margin-top: 14px; display: flex; align-items: center; gap: 8px; background: #f6e7e3; color: var(--danger); border-radius: var(--r-md); padding: 10px 14px; font-size: 13.5px; font-weight: 500; }
 .login-err svg { width: 17px; height: 17px; flex: none; }

@@ -22,9 +22,17 @@ function Toggle({ on, onChange }) {
 }
 
 export default function Settings() {
-  const { ROLES, toast, exportBackup, importBackup, guests, appointments, packages, sales } = useStore()
+  const { ROLES, toast, exportBackup, importBackup, wipeHistory, wipeAll, guests, appointments, packages, sales } = useStore()
   const [integrations, setIntegrations] = useState({ pms: true, whatsapp: true, online: false, ai: false })
   const fileRef = useRef(null)
+  const onWipeHistory = () => {
+    if (window.confirm('Tüm geçmiş (randevular, satışlar, paketler) silinecek. Primler ve misafir listesi KORUNUR. Devam edilsin mi?')
+      && window.confirm('Emin misiniz? Bu işlem geri alınamaz.')) wipeHistory()
+  }
+  const onWipeAll = () => {
+    if (window.confirm('TÜM veriler — primler ve misafirler dahil — silinip sistem sıfırlanacak. Devam edilsin mi?')
+      && window.confirm('Son uyarı: primler de dahil HER ŞEY silinecek. Geri alınamaz!')) wipeAll()
+  }
   const onRestoreFile = (e) => {
     const f = e.target.files && e.target.files[0]; e.target.value = ''
     if (!f) return
@@ -134,6 +142,17 @@ export default function Settings() {
         </div>
         <div className="muted small" style={{ marginTop: 12 }}>
           Mevcut veri: <b>{guests.length}</b> misafir · <b>{appointments.length}</b> randevu · <b>{packages.length}</b> paket · <b>{sales.length}</b> satış
+        </div>
+      </Panel>
+
+      <Panel className="section-gap" title="Sıfırlama (Tehlikeli Bölge)">
+        <div className="muted small" style={{ marginBottom: 12, lineHeight: 1.5 }}>
+          Bu işlemler <b>geri alınamaz</b>. Önce üstteki <b>Yedek Al</b> ile tam yedek indirmeniz önerilir.
+          <b> Primler</b> (terapist hak edişleri) yalnızca “Her Şeyi Sıfırla” ile silinir; “Geçmişi Sil”de <b>korunur</b>.
+        </div>
+        <div className="center gap-sm" style={{ flexWrap: 'wrap' }}>
+          <Button variant="ghost" onClick={onWipeHistory}>Geçmişi Sil (randevu · satış · paket)</Button>
+          <Button variant="ghost" style={{ color: 'var(--danger)', borderColor: '#e3b7b0' }} onClick={onWipeAll}>Her Şeyi Sıfırla (primler &amp; misafirler dahil)</Button>
         </div>
       </Panel>
     </div>
