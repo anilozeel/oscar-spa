@@ -13,10 +13,11 @@ const ymd = (d) => { const x = new Date(d); const z = (n) => String(n).padStart(
 const apptDay = (a) => a.date || ymd(new Date(a.createdAt || Date.now()))
 
 const SLOTS = []
-for (let h = 9; h <= 22; h++) { SLOTS.push(`${String(h).padStart(2, '0')}:00`); if (h < 22) SLOTS.push(`${String(h).padStart(2, '0')}:30`) }
+for (let h = 9; h <= 23; h++) { SLOTS.push(`${String(h).padStart(2, '0')}:00`); if (h < 23) SLOTS.push(`${String(h).padStart(2, '0')}:30`) }
 
 const DAY_START = 9 * 60
-const DAY_END = 23 * 60
+const DAY_END = 24 * 60
+const LAST_START = 23 * 60
 const PXPM = 1
 const GRID = []
 for (let m = DAY_START; m < DAY_END; m += 30) GRID.push({ min: m, label: fmtMin(m), hour: m % 60 === 0 })
@@ -212,7 +213,7 @@ function DayCalendar({ appts, therapists, onPick, onReschedule, onNewAt, canEdit
 
   return (
     <div className="tcal-wrap section-gap">
-      <div className="tcal" style={{ minWidth: 120 + cols.length * 180 }}>
+      <div className="tcal" style={{ minWidth: 56 + cols.length * 128 }}>
         <div className="tcal-head">
           <div className="tcal-corner" />
           {cols.map((c, ci) => (
@@ -235,7 +236,7 @@ function DayCalendar({ appts, therapists, onPick, onReschedule, onNewAt, canEdit
                   if (e.target.closest('.tcal-appt')) return
                   const r = e.currentTarget.getBoundingClientRect()
                   let min = DAY_START + Math.round((e.clientY - r.top) / 30) * 30
-                  min = Math.max(DAY_START, Math.min(min, 20 * 60))
+                  min = Math.max(DAY_START, Math.min(min, LAST_START))
                   onNewAt(c.id, min)
                 } : undefined}>
                 {GRID.map((g) => <div key={g.min} className={`tcal-slot ${g.hour ? 'hour' : ''}`} style={{ height: 30 }} />)}
