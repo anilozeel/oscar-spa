@@ -21,7 +21,7 @@ export async function sendWhatsApp(to, body) {
 // Mesaj sablonlari
 export const waMsg = {
   therapistNew: (a) =>
-    `🗓️ Yeni randevu\n${a.time}–${a.end} · ${a.service}\nMisafir: ${a.guest}${a.phone ? ' (' + a.phone + ')' : ''}`,
+    `🗓️ Yeni randevu\n${a.time}–${a.end} · ${a.service}\nMisafir: ${a.guest}`,
   guestNew: (a, dateLabel) =>
     `Merhaba ${a.guest}, Oscar Spa randevunuz oluşturuldu:\n📅 ${dateLabel} · ⏰ ${a.time}\n💆 ${a.service}\nGörüşmek üzere! 🌿`,
 }

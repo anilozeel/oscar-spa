@@ -1,0 +1,40 @@
+name: WA tani (sablon listesi)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Twilio icerik/onay listesi
+        env:
+          TW_SID: ${{ secrets.TWILIO_SID }}
+          TW_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import os, json, base64, urllib.request, urllib.error
+          sid=os.environ["TW_SID"]; tok=os.environ["TW_TOKEN"]
+          auth=base64.b64encode(f"{sid}:{tok}".encode()).decode()
+          def get(url):
+              r=urllib.request.Request(url); r.add_header("Authorization","Basic "+auth)
+              try:
+                  with urllib.request.urlopen(r) as resp: return resp.status, resp.read().decode()
+              except urllib.error.HTTPError as e: return e.code, e.read().decode()
+          for name,url in [
+              ("Content", "https://content.twilio.com/v1/Content?PageSize=50"),
+              ("ContentAndApprovals", "https://content.twilio.com/v1/ContentAndApprovals?PageSize=50"),
+          ]:
+              st,body=get(url)
+              print(f"==== {name} (HTTP {st}) ====")
+              try:
+                  j=json.loads(body)
+                  cs=j.get("contents",[])
+                  print("adet:", len(cs))
+                  for c in cs:
+                      ap=c.get("approval_requests") or c.get("whatsapp") or {}
+                      print(" sid=",c.get("sid")," fn=",c.get("friendly_name")," lang=",c.get("language")," onay=",json.dumps(ap,ensure_ascii=False)[:120])
+                  if not cs: print("RAW:", body[:800])
+              except Exception as ex:
+                  print("parse err:", ex, "RAW:", body[:800])
+          PY

@@ -41,7 +41,7 @@ jobs:
           to=os.environ["TO"]; g=os.environ["GUEST"]; d=os.environ["GDATE"]
           t=os.environ["GTIME"]; e=os.environ["GEND"]; s=os.environ["GSVC"]
           musteri=f"Merhaba {g}, Oscar Spa randevunuz oluşturuldu:\n📅 {d} · ⏰ {t}\n💆 {s}\nGörüşmek üzere! 🌿"
-          terapist=f"🗓️ Yeni randevu\n{t}–{e} · {s}\nMisafir: {g} ({to})"
+          terapist=f"🗓️ Yeni randevu\n{t}–{e} · {s}\nMisafir: {g}"
           open("m1.json","w").write(json.dumps({"to":to,"body":musteri}, ensure_ascii=False))
           open("m2.json","w").write(json.dumps({"to":to,"body":terapist}, ensure_ascii=False))
           PY
