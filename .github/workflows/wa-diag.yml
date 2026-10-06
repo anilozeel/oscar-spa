@@ -7,7 +7,7 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Twilio icerik/onay listesi
+      - name: Son mesajlari dok (ContentSid bul)
         env:
           TW_SID: ${{ secrets.TWILIO_SID }}
           TW_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
@@ -21,20 +21,11 @@ jobs:
               try:
                   with urllib.request.urlopen(r) as resp: return resp.status, resp.read().decode()
               except urllib.error.HTTPError as e: return e.code, e.read().decode()
-          for name,url in [
-              ("Content", "https://content.twilio.com/v1/Content?PageSize=50"),
-              ("ContentAndApprovals", "https://content.twilio.com/v1/ContentAndApprovals?PageSize=50"),
-          ]:
-              st,body=get(url)
-              print(f"==== {name} (HTTP {st}) ====")
-              try:
-                  j=json.loads(body)
-                  cs=j.get("contents",[])
-                  print("adet:", len(cs))
-                  for c in cs:
-                      ap=c.get("approval_requests") or c.get("whatsapp") or {}
-                      print(" sid=",c.get("sid")," fn=",c.get("friendly_name")," lang=",c.get("language")," onay=",json.dumps(ap,ensure_ascii=False)[:120])
-                  if not cs: print("RAW:", body[:800])
-              except Exception as ex:
-                  print("parse err:", ex, "RAW:", body[:800])
+          st,body=get(f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json?PageSize=10")
+          print("HTTP", st)
+          j=json.loads(body)
+          for m in j.get("messages",[]):
+              print("----")
+              for k in ("sid","direction","status","from","to","body","content_sid","messaging_service_sid","date_sent"):
+                  if k in m: print(f"  {k}: {m.get(k)}")
           PY
