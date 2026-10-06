@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, useState, useCallback, useEffect } from 'react'
 import * as mock from '../data/mock.js'
 import { notifyAssignment } from '../lib/notify.js'
+import { sendWhatsApp, waMsg } from '../lib/wa.js'
 import { FIREBASE_ENABLED, db, auth } from '../lib/firebase.js'
 import { AUTH_EMAIL_SUFFIX } from '../lib/firebaseConfig.js'
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore'
@@ -198,6 +199,15 @@ export function StoreProvider({ children }) {
     if (FIREBASE_ENABLED) fsSet('appointments', appt.id, appt).catch(() => toast('Randevu kaydedilemedi', 'warn'))
     else setAppointments((list) => [...list, appt])
     toast('Randevu oluşturuldu')
+    // WhatsApp bildirimleri (besteffort — Twilio proxy / wa.php)
+    try {
+      const t = appt.therapistId ? mock.therapists.find((x) => x.id === appt.therapistId) : null
+      if (t && t.phone) sendWhatsApp(t.phone, waMsg.therapistNew(appt))
+      if (appt.phone) {
+        const dl = new Date((appt.date || ymd()) + 'T00:00:00').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })
+        sendWhatsApp(appt.phone, waMsg.guestNew(appt, dl))
+      }
+    } catch { /* no-op */ }
     // Bildirim, atanan terapistin kendi cihazında canlı veriden tetiklenir (yukarıdaki dinleyici)
     return true
   }, [findConflict, toast, findOrCreateGuest])

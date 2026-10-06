@@ -35,8 +35,8 @@ export const ROLE_ACCESS = {
 
 // ---- Terapistler (Sayfa 08) --------------------------------------------------
 export const therapists = [
-  { id: 't2', name: 'Sitti', initials: 'S', color: '#3b5bdb', active: true, skills: ['Masaj','Kese köpük','Paket'], shift: '11:00 - 20:00', rating: 0, todayCount: 0, monthCommissionUsd: 0, load: 0 },
-  { id: 't1', name: 'Dita',  initials: 'D', color: '#e64980', active: true, skills: ['Masaj','Kese köpük','Paket'], shift: '10:00 - 19:00', rating: 0, todayCount: 0, monthCommissionUsd: 0, load: 0 },
+  { id: 't2', name: 'Sitti', initials: 'S', color: '#3b5bdb', phone: '', active: true, skills: ['Masaj','Kese köpük','Paket'], shift: '11:00 - 20:00', rating: 0, todayCount: 0, monthCommissionUsd: 0, load: 0 },
+  { id: 't1', name: 'Dita',  initials: 'D', color: '#e64980', phone: '', active: true, skills: ['Masaj','Kese köpük','Paket'], shift: '10:00 - 19:00', rating: 0, todayCount: 0, monthCommissionUsd: 0, load: 0 },
 ]
 
 // ---- Prim kuralları (Sayfa 08) — varsayılan USD bazlı ------------------------
