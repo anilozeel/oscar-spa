@@ -7,19 +7,14 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Canli spa JS'inde spasanal var mi
+      - name: Surum + spalog
         run: |
-          echo "== index.html =="
           HTML=$(curl -s "https://www.oscarseasidehotel.com/spa/index.html")
-          echo "$HTML" | grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' | head
           JS=$(echo "$HTML" | grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' | head -1)
           echo "JS: $JS"
-          echo "== JS icinde arama =="
           BODY=$(curl -s "https://www.oscarseasidehotel.com/spa/$JS")
-          echo "spasanal : $(echo "$BODY" | grep -c spasanal)"
-          echo "menu/api : $(echo "$BODY" | grep -c 'menu/api.php')"
-          echo "postSpaElektra-izi (fn=spasanal): $(echo "$BODY" | grep -oc 'fn=spasanal')"
+          echo "fn=spasanal      : $(echo "$BODY" | grep -oc 'fn=spasanal')"
+          echo "toast 'folyosuna': $(echo "$BODY" | grep -oc 'folyosuna')"
+          echo "deleteSale izi   : $(echo "$BODY" | grep -oc 'Adisyon silindi')"
           echo "== spalog (son spasanal denemeleri) =="
           curl -s "https://www.oscarseasidehotel.com/menu/api.php?fn=spalog"; echo
-          echo "== canli Nakit test (1 TL) =="
-          curl -s -X POST "https://www.oscarseasidehotel.com/menu/api.php?fn=spasanal" -H "Content-Type: application/json" -d '{"amount":1,"service":"TEST Nakit - silinebilir","pm":"Nakit","guest":"Test"}'; echo
