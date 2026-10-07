@@ -18,8 +18,20 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 )
 
 // PWA: service worker kaydı (ağ öncelikli — çevrimdışı destek + "ana ekrana ekle")
+// Yeni sürüm yayınlandığında açık uygulama otomatik yenilenir.
 if ('serviceWorker' in navigator) {
+  let reloading = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading) return
+    reloading = true
+    window.location.reload()
+  })
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {})
+    navigator.serviceWorker.register('./sw.js').then((reg) => {
+      const checkUpdate = () => { try { reg.update() } catch { /* no-op */ } }
+      checkUpdate()
+      setInterval(checkUpdate, 60 * 1000)
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate() })
+    }).catch(() => {})
   })
 }

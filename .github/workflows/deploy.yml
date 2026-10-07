@@ -44,6 +44,11 @@ jobs:
           npm ci --no-audit --no-fund
           npm run build
 
+      - name: SW surum damgasi (her deploy'da guncellensin)
+        run: |
+          echo "" >> dist/sw.js
+          echo "// build: $(date -u +%Y%m%d%H%M%S) ${GITHUB_SHA::7}" >> dist/sw.js
+
       - name: Twilio WhatsApp config olustur (gizli, loglanmaz)
         env:
           TW_SID: ${{ secrets.TWILIO_SID }}
