@@ -290,8 +290,15 @@ export function StoreProvider({ children }) {
     }
     if (fromPackage && packageId) usePackageSession(packageId)
 
-    // Elektra: peşin spa satışını Oscar Spa folyosuna işle (Nakit/Kredi/Havale; besteffort)
-    try { if (!fromPackage && !isFree && payType !== 'folio' && amount > 0) postSpaElektra({ amount, service: serviceName, pm: payType, guest: appt.guest }) } catch { /* no-op */ }
+    // Elektra: peşin spa satışını Oscar Spa folyosuna işle (Nakit/Kredi/Havale; sonucu bildir)
+    if (!fromPackage && !isFree && payType !== 'folio' && amount > 0) {
+      postSpaElektra({ amount, service: serviceName, pm: payType, guest: appt.guest })
+        .then((r) => {
+          if (r && r.ok) toast('Elektra: Oscar Spa folyosuna işlendi ✓')
+          else if (r && !r.skipped) toast('Elektra: işlenemedi — ' + (r.error || r.detail || 'bağlantı'), 'warn')
+        })
+        .catch(() => {})
+    }
 
     toast(isFree
       ? 'Ücretsiz işlem tamamlandı — prim yazılmadı'
