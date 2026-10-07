@@ -6,6 +6,9 @@ on:
       resid:
         description: "Oscar Spa folyo RESID (bos birak = sadece kesif)"
         default: ""
+      dep_spa:
+        description: "Spa gelir merkezi DEPKODU (bos = degistirme)"
+        default: ""
       test_amount:
         description: "Test adisyonu tutari (0 = test yok)"
         default: "0"
@@ -17,12 +20,13 @@ jobs:
       - name: setspa + kesif + test
         env:
           RESID: ${{ github.event.inputs.resid }}
+          DEPSPA: ${{ github.event.inputs.dep_spa }}
           TAMT: ${{ github.event.inputs.test_amount }}
         run: |
           BASE="https://www.oscarseasidehotel.com/menu/api.php"
-          if [ -n "$RESID" ]; then
-            echo "== setspa (spa_resid=$RESID) =="
-            curl -s -X POST "$BASE?fn=setspa" -H "Content-Type: application/json" -d "{\"spa_resid\":\"$RESID\"}"; echo
+          if [ -n "$RESID" ] || [ -n "$DEPSPA" ]; then
+            echo "== setspa (spa_resid=$RESID dep_spa=$DEPSPA) =="
+            curl -s -X POST "$BASE?fn=setspa" -H "Content-Type: application/json" -d "{\"spa_resid\":\"$RESID\",\"dep_spa\":\"$DEPSPA\"}"; echo
           fi
           echo "== spadiscover (resolved + centers) =="
           curl -s "$BASE?fn=spadiscover" | python3 -c "import sys,json; d=json.load(sys.stdin); print('RESOLVED:',json.dumps(d.get('resolved',{}),ensure_ascii=False)); print('CENTERS:'); [print('  ',c.get('code'),c.get('type'),c.get('name')) for c in d.get('centers',[])]" || echo "(hata)"
