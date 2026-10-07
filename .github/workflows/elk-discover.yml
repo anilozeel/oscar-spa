@@ -1,0 +1,13 @@
+name: Spa Elektra kesif
+
+on:
+  workflow_dispatch:
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: spadiscover cagir
+        run: |
+          echo "== fn=spadiscover =="
+          curl -s "https://www.oscarseasidehotel.com/menu/api.php?fn=spadiscover" | python3 -m json.tool || echo "(json degil / hata)"
