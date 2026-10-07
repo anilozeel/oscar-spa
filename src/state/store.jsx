@@ -2,6 +2,7 @@ import { createContext, useContext, useMemo, useState, useCallback, useEffect } 
 import * as mock from '../data/mock.js'
 import { notifyAssignment } from '../lib/notify.js'
 import { sendWhatsApp, waMsg } from '../lib/wa.js'
+import { postSpaElektra } from '../lib/elektra.js'
 import { FIREBASE_ENABLED, db, auth } from '../lib/firebase.js'
 import { AUTH_EMAIL_SUFFIX } from '../lib/firebaseConfig.js'
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore'
@@ -288,6 +289,9 @@ export function StoreProvider({ children }) {
       setAppointments((l) => l.map((a) => (a.id === appt.id ? { ...a, ...apptPatch } : a)))
     }
     if (fromPackage && packageId) usePackageSession(packageId)
+
+    // Elektra: peşin spa satışını Oscar Spa folyosuna işle (Nakit/Kredi/Havale; besteffort)
+    try { if (!fromPackage && !isFree && payType !== 'folio' && amount > 0) postSpaElektra({ amount, service: serviceName, pm: payType, guest: appt.guest }) } catch { /* no-op */ }
 
     toast(isFree
       ? 'Ücretsiz işlem tamamlandı — prim yazılmadı'

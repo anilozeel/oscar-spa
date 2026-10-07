@@ -3,6 +3,7 @@ import { useStore } from '../state/store.jsx'
 import { PageHead, Panel, Badge, Chip, Avatar, Button } from '../components/ui.jsx'
 import Icon from '../components/icons.jsx'
 import { sendWhatsApp } from '../lib/wa.js'
+import { spaElektraDiscover } from '../lib/elektra.js'
 
 const USERS = [
   { name: 'Deniz Kaya', role: 'Owner / Genel Müdür', init: 'DK', on: true },
@@ -36,6 +37,16 @@ export default function Settings() {
     setWaBusy(false)
     if (r.ok) toast('WhatsApp gönderildi ✅')
     else toast('Gönderilemedi: ' + (r.detail || r.error || 'bilinmeyen'), 'warn')
+  }
+  const [elk, setElk] = useState(null)
+  const [elkBusy, setElkBusy] = useState(false)
+  const onElkDiscover = async () => {
+    setElkBusy(true)
+    const r = await spaElektraDiscover()
+    setElkBusy(false)
+    setElk(r)
+    if (!r || r.ok === false) toast('Elektra keşif: ' + ((r && (r.error || (r.disabled ? 'elektra pasif' : ''))) || 'hata'), 'warn')
+    else toast('Elektra keşif tamam')
   }
   const onWipeHistory = () => {
     if (window.confirm('Tüm geçmiş (randevular, satışlar, paketler) silinecek. Primler ve misafir listesi KORUNUR. Devam edilsin mi?')
@@ -152,6 +163,27 @@ export default function Settings() {
             value={waPhone} onChange={(e) => setWaPhone(e.target.value)} />
           <Button icon="whatsapp" disabled={waBusy} onClick={onWaTest}>{waBusy ? 'Gönderiliyor…' : 'Test WhatsApp Gönder'}</Button>
         </div>
+      </Panel>
+
+      <Panel className="section-gap" title="Spa → Elektra (Oscar Spa Folyosu)">
+        <div className="muted small" style={{ marginBottom: 12, lineHeight: 1.5 }}>
+          Ödeme alınınca (Nakit / Kredi Kartı / Havale) adisyon otomatik olarak Elektra'da <b>Oscar Spa</b> folyosuna işlenir
+          (harcama + ödeme). Aşağıdaki buton, Elektra'daki folyo ve ödeme kodlarının doğru çözüldüğünü kontrol eder.
+        </div>
+        <Button icon="pms" variant="ghost" disabled={elkBusy} onClick={onElkDiscover}>{elkBusy ? 'Kontrol ediliyor…' : 'Elektra Kodlarını Kontrol Et'}</Button>
+        {elk && elk.ok && elk.resolved && (
+          <div className="card" style={{ background: 'var(--surface-2)', marginTop: 12, fontSize: 13 }}>
+            <div className="kv"><span className="k">Oscar Spa folyo (RESID)</span><span className="v">{elk.resolved.spa_resid || '—'}</span></div>
+            <div className="kv"><span className="k">Spa gelir (REVID)</span><span className="v">{elk.resolved.rev_spa || '—'}</span></div>
+            <div className="kv"><span className="k">Gider merkezi (DEPKODU)</span><span className="v">{elk.resolved.dep_spa || '—'}</span></div>
+            <div className="kv"><span className="k">Spa Nakit</span><span className="v">{elk.resolved.dep_spa_nakit || '—'}</span></div>
+            <div className="kv"><span className="k">Spa Kredi Kartı</span><span className="v">{elk.resolved.dep_spa_kredi || '—'}</span></div>
+            <div className="kv"><span className="k">Spa Havale</span><span className="v">{elk.resolved.dep_spa_havale || '—'}</span></div>
+            <div className="muted small" style={{ marginTop: 8 }}>
+              Spa folyo adayları: {(elk.reservations_spa || []).map((r) => `${r.name} (RESID ${r.resid})`).join(' · ') || 'bulunamadı'}
+            </div>
+          </div>
+        )}
       </Panel>
 
       <Panel className="section-gap" title="Yedekleme">
