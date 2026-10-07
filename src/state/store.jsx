@@ -381,6 +381,20 @@ export function StoreProvider({ children }) {
     [setAppointments, setSales, setPackages, setCommissions, setGuests], 'Tüm veriler sıfırlandı'
   ), [_wipe, appointments, sales, packages, commissions, guests])
 
+  // Adisyon (satış) sil: satışı + ilişkili primleri kaldırır. (Elektra kaydı ayrı; oradan elle silinir.)
+  const deleteSale = useCallback((id) => {
+    const s = sales.find((x) => x.id === id)
+    const cs = commissions.filter((c) => c.saleId === id)
+    if (FIREBASE_ENABLED) {
+      fsDelete('sales', id).catch(() => toast('Silinemedi', 'warn'))
+      cs.forEach((c) => fsDelete('commissions', c.id).catch(() => {}))
+    } else {
+      setSales((l) => l.filter((x) => x.id !== id))
+      setCommissions((l) => l.filter((c) => c.saleId !== id))
+    }
+    toast('Adisyon silindi' + (s ? ' (#' + s.no + ')' : ''))
+  }, [sales, commissions, toast])
+
   // Bugünün randevuları (takvim tarih modeline göre; kapanmış/gizli hariç)
   const todayAppointments = useMemo(() => {
     const t = ymd()
@@ -413,7 +427,7 @@ export function StoreProvider({ children }) {
     services, addService,
     packages, addPackage, activePackageFor,
     guests, addGuest,
-    sales, commissions,
+    sales, commissions, deleteSale,
     exportBackup, importBackup, wipeHistory, wipeAll,
     toast, toasts,
     sidebarOpen, setSidebarOpen,

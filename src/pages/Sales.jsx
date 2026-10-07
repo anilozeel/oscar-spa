@@ -13,7 +13,8 @@ const PAY = [
 
 export default function Sales() {
   const store = useStore()
-  const { visibleAppointments, sales, fmtTRY, fmtUSD } = store
+  const { visibleAppointments, sales, fmtTRY, fmtUSD, deleteSale } = store
+  const onDeleteSale = (s) => { if (window.confirm(`#${s.no} adisyonu silinsin mi? (satış + prim kaldırılır)`)) deleteSale(s.id) }
   const [ticket, setTicket] = useState(null)
   const openAppts = visibleAppointments.filter((a) => a.status !== 'done')
   const todayRevenue = sales.reduce((s, x) => s + x.amount, 0)
@@ -60,6 +61,8 @@ export default function Sales() {
               </div>
               <Badge kind={s.payType === 'folio' ? 'free' : 'sage'}>{PAY.find((p) => p.id === s.payType)?.label}</Badge>
               <div className="money">{fmtTRY(s.amount)}</div>
+              <button className="icon-btn" title="Adisyonu sil" onClick={() => onDeleteSale(s)}
+                style={{ width: 32, height: 32, color: 'var(--danger)', flex: 'none' }}><Icon.trash style={{ width: 15, height: 15 }} /></button>
             </div>
           )) : (
             <div className="empty"><Icon.pos /><div>Henüz adisyon kapatılmadı.<br />Soldan bir adisyon açıp ödemeyi tamamlayın.</div></div>
