@@ -19,3 +19,7 @@ jobs:
           echo "spasanal : $(echo "$BODY" | grep -c spasanal)"
           echo "menu/api : $(echo "$BODY" | grep -c 'menu/api.php')"
           echo "postSpaElektra-izi (fn=spasanal): $(echo "$BODY" | grep -oc 'fn=spasanal')"
+          echo "== spalog (son spasanal denemeleri) =="
+          curl -s "https://www.oscarseasidehotel.com/menu/api.php?fn=spalog"; echo
+          echo "== canli Nakit test (1 TL) =="
+          curl -s -X POST "https://www.oscarseasidehotel.com/menu/api.php?fn=spasanal" -H "Content-Type: application/json" -d '{"amount":1,"service":"TEST Nakit - silinebilir","pm":"Nakit","guest":"Test"}'; echo
