@@ -20,6 +20,7 @@ export const ROLES = [
 // therapistId dolu ise kullanıcı sadece o terapistin randevularını görür.
 export const ACCOUNTS = [
   { username: 'cigdem', password: 'cigdem123', role: 'owner',     name: 'Çiğdem', therapistId: null },
+  { username: 'bilgin', password: 'bilgin.123', role: 'manager',  name: 'Bilgin', therapistId: null, mustChange: true },
   { username: 'dita',   password: 'dita123',   role: 'therapist', name: 'Dita',   therapistId: 't1' },
   { username: 'sitti',  password: 'sitti123',  role: 'therapist', name: 'Sitti',  therapistId: 't2' },
 ]

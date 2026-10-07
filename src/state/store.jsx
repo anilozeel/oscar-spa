@@ -5,8 +5,8 @@ import { sendWhatsApp, waMsg } from '../lib/wa.js'
 import { postSpaElektra } from '../lib/elektra.js'
 import { FIREBASE_ENABLED, db, auth } from '../lib/firebase.js'
 import { AUTH_EMAIL_SUFFIX } from '../lib/firebaseConfig.js'
-import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore'
-import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'
+import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, getDoc } from 'firebase/firestore'
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword } from 'firebase/auth'
 
 const StoreCtx = createContext(null)
 export const useStore = () => useContext(StoreCtx)
@@ -37,6 +37,13 @@ const buildUser = (acc) => {
 const findAcc = (uname) =>
   mock.ACCOUNTS.find((a) => a.username.toLowerCase() === String(uname || '').trim().toLowerCase())
 
+// Hesap "ilk girişte şifre değiştir" işaretliyse ve henüz değiştirmediyse true.
+const mustChangeFor = async (acc) => {
+  if (!acc || !acc.mustChange) return false
+  if (!FIREBASE_ENABLED) return true
+  try { const s = await getDoc(doc(db, 'appusers', acc.username.toLowerCase())); return !(s.exists() && s.data().pwChanged) } catch { return false }
+}
+
 export function StoreProvider({ children }) {
   const [user, setUser] = useState(loadUser)      // oturum kalıcı
   const [authUid, setAuthUid] = useState(null)    // Firebase Auth hazır olunca dolar
@@ -63,7 +70,7 @@ export function StoreProvider({ children }) {
       if (!acc) return false // yalnızca tanımlı personel girebilir
       try {
         await signInWithEmailAndPassword(auth, acc.username.toLowerCase() + AUTH_EMAIL_SUFFIX, password)
-        const u = buildUser(acc); setUser(u); persistUser(u) // anında; onAuthStateChanged de teyit eder
+        const u = buildUser(acc); u.needPwChange = await mustChangeFor(acc); setUser(u); persistUser(u) // anında; onAuthStateChanged de teyit eder
         return true
       } catch { return false }
     }
@@ -79,6 +86,26 @@ export function StoreProvider({ children }) {
     if (FIREBASE_ENABLED) signOut(auth).catch(() => {})
   }, [])
 
+  // Şifre değiştir (ilk giriş zorunlu değişimi dahil). Firebase Auth parolasını günceller.
+  const changePassword = useCallback(async (newPassword) => {
+    const np = String(newPassword || '')
+    if (np.length < 6) return { ok: false, error: 'Şifre en az 6 karakter olmalı' }
+    try {
+      if (FIREBASE_ENABLED && auth.currentUser) {
+        await updatePassword(auth.currentUser, np)
+        try { await setDoc(doc(db, 'appusers', String(user?.username || '').toLowerCase()), { pwChanged: true, at: Date.now() }) } catch { /* no-op */ }
+      }
+      setUser((u) => { if (!u) return u; const nu = { ...u, needPwChange: false }; persistUser(nu); return nu })
+      toast('Şifre güncellendi ✓')
+      return { ok: true }
+    } catch (e) {
+      const code = (e && e.code) ? String(e.code) : 'hata'
+      if (code.indexOf('requires-recent-login') >= 0) return { ok: false, error: 'Oturum eski — çıkıp tekrar giriş yapın' }
+      if (code.indexOf('weak-password') >= 0) return { ok: false, error: 'Şifre çok zayıf' }
+      return { ok: false, error: code }
+    }
+  }, [user, toast])
+
   // Firebase oturumunu geri yükle / dinle
   useEffect(() => {
     if (!FIREBASE_ENABLED) return
@@ -86,7 +113,13 @@ export function StoreProvider({ children }) {
       if (fb && fb.email) {
         setAuthUid(fb.uid)
         const acc = findAcc(fb.email.split('@')[0])
-        if (acc) { const u = buildUser(acc); setUser(u); persistUser(u) }
+        if (acc) {
+          const u = buildUser(acc); setUser(u); persistUser(u)
+          mustChangeFor(acc).then((need) => setUser((cur) => {
+            if (!cur || cur.username !== acc.username) return cur
+            const nu = { ...cur, needPwChange: need }; persistUser(nu); return nu
+          }))
+        }
       } else {
         setAuthUid(null); setUser(null)
         try { localStorage.removeItem('oscarspa.user') } catch { /* no-op */ }
@@ -427,7 +460,7 @@ export function StoreProvider({ children }) {
     ...mock,
     KPIS: liveKpis, todayAppointments,
     FIREBASE_ENABLED,
-    user, login, logout, canAccess,
+    user, login, logout, canAccess, changePassword,
     appointments, visibleAppointments, addAppointment, cancelAppointment, updateAppointment, findConflict, closeTicket,
     services, addService,
     packages, addPackage, activePackageFor,

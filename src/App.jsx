@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useStore } from './state/store.jsx'
 import Layout from './components/Layout.jsx'
 import Login from './pages/Login.jsx'
+import ForcePwChange from './pages/ForcePwChange.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Appointments from './pages/Appointments.jsx'
 import MyCommissions from './pages/MyCommissions.jsx'
@@ -51,6 +52,7 @@ export default function App() {
   }, [toast])
 
   if (!user) return <Login />
+  if (user.needPwChange) return <ForcePwChange />
 
   return (
     <Routes>

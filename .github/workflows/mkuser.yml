@@ -1,0 +1,36 @@
+name: Firebase kullanici olustur
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: "E-posta (kullaniciadi@oscarspa.app)"
+        required: true
+      password:
+        description: "Baslangic sifresi"
+        required: true
+
+jobs:
+  mkuser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: accounts:signUp
+        env:
+          EMAIL: ${{ github.event.inputs.email }}
+          PASS: ${{ github.event.inputs.password }}
+        run: |
+          KEY="AIzaSyAKcFtOSwyTftvU7wz5HOt5BeCSSIwYBeo"
+          python3 - <<'PY'
+          import os, json, urllib.request, urllib.error
+          key="AIzaSyAKcFtOSwyTftvU7wz5HOt5BeCSSIwYBeo"
+          url="https://identitytoolkit.googleapis.com/v1/accounts:signUp?key="+key
+          data=json.dumps({"email":os.environ["EMAIL"],"password":os.environ["PASS"],"returnSecureToken":True}).encode()
+          r=urllib.request.Request(url,data=data,headers={"Content-Type":"application/json"})
+          try:
+            with urllib.request.urlopen(r) as resp:
+              j=json.loads(resp.read().decode())
+              print("OK — olusturuldu:", j.get("email"), "localId:", j.get("localId"))
+          except urllib.error.HTTPError as e:
+            j=json.loads(e.read().decode())
+            print("HTTP", e.code, json.dumps(j.get("error",{}), ensure_ascii=False))
+          PY
