@@ -12,14 +12,26 @@ jobs:
           code=$(curl -s -o /dev/null -w '%{http_code}' "$B/logo.png"); echo "logo HTTP $code"; test "$code" = "200"
           echo "== api list =="
           curl -s "$B/api.php?fn=list" | python3 -c "import sys,json; d=json.load(sys.stdin); print('personel:',len(d['rows'])); assert d['ok']"
-          echo "== belge hepsi (tum evraklar) id=p1 =="
-          H=$(curl -s "$B/belge.php?type=hepsi&id=p1")
-          echo "$H" | grep -c 'class="page"' | xargs echo "sayfa sayisi:"
-          for t in "BELIRSIZ SURELI" "ORYANTASYON FORMU" "FAZLA MESAI" "KVKK AYDINLATMA" "KORUNMASI PROTOKOLU" "UNIFORMA TALEP" "LOJMAN KULLANIM" "LOJMAN YERLESIM"; do
-            echo "$H" | grep -qi "$t" && echo "OK: $t" || { echo "MISSING: $t"; exit 1; }
-          done
-          echo "== pozisyon otomatik dolum (p5 Resepsiyonist) =="
-          S=$(curl -s "$B/belge.php?type=sozlesme&id=p5")
-          echo "$S" | grep -q "Resepsiyonist" && echo "OK: pozisyon dolu" || { echo "FAIL pozisyon"; exit 1; }
-          echo "$S" | grep -q "GOK" && { echo "NOTE old-name check skipped"; } || echo "OK"
+          echo "== belge hepsi id=p1 =="
+          curl -s "$B/belge.php?type=hepsi&id=p1" > /tmp/h.html
+          echo "sayfa: $(grep -c 'class=\"page\"' /tmp/h.html)"
+          python3 - <<'PY'
+          html=open('/tmp/h.html',encoding='utf-8').read()
+          need=["BELİRSİZ SÜRELİ İŞ SÖZLEŞMESİ","ORYANTASYON FORMU","FAZLA MESAİ MUVAFAKATNAMESİ",
+                "KVKK AYDINLATMA METNİ","KORUNMASI PROTOKOLÜ","ÜNİFORMA TALEP FORMU",
+                "LOJMAN KULLANIM TALİMATI","LOJMAN YERLEŞİM FORMU","ZİMMET FORMU","İŞE GİRİŞ EVRAKLARI"]
+          miss=[t for t in need if t not in html]
+          assert not miss, "EKSIK: "+str(miss)
+          print("TUM BASLIKLAR VAR:",len(need))
+          PY
+          echo "== pozisyon dolum p5 =="
+          curl -s "$B/belge.php?type=sozlesme&id=p5" > /tmp/s.html
+          python3 - <<'PY'
+          s=open('/tmp/s.html',encoding='utf-8').read()
+          assert "Resepsiyonist" in s, "pozisyon dolmamis"
+          print("OK pozisyon: Resepsiyonist dolu, adet=",s.count("Resepsiyonist"))
+          # imza satirinda sabit eski isim olmamali
+          assert "ÇİĞDEM GÖK" not in s, "eski isim sabit kalmis"
+          print("OK sabit eski isim yok")
+          PY
           echo "== HEPSI BASARILI =="
