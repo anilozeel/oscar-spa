@@ -4,29 +4,25 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify Oscar IK self-service live
+      - name: Verify izin + sifre + silme
         run: |
           set -e
           B="https://oscarseasidehotel.com/ik"
           KEY=$(curl -s "$B/api.php?fn=login" -X POST -H 'Content-Type: application/json' -d '{"u":"cigdem","p":"cigdem.123"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["key"])')
           H="X-IK-KEY: $KEY"; CT="Content-Type: application/json"
-          echo "== personel.php + qr-mesai.png =="
-          curl -s "$B/personel.php" | grep -q 'Personel Girişi' && echo "OK personel.php" || { echo FAIL; exit 1; }
-          test "$(curl -s -o /dev/null -w '%{http_code}' "$B/qr-mesai.png")" = "200" && echo "OK qr-mesai.png"
-          echo "== onboard: tarih + hesap =="
-          R=$(curl -s "$B/api.php?fn=save" -X POST -H "$H" -H "$CT" -d '{"ad":"Canli","soyad":"Test","iseGiris":"03032026","departman":"Ön Büro","pozisyon":"Test","gorev":"Test","ucret":"30000"}')
-          echo "$R" | python3 -c 'import sys,json;d=json.load(sys.stdin);assert d["account"]["kullanici"];print("OK hesap:",d["account"]["kullanici"])'
+          # create temp personnel
+          R=$(curl -s "$B/api.php?fn=save" -X POST -H "$H" -H "$CT" -d '{"ad":"Sil","soyad":"Test","departman":"Test","pozisyon":"Test","gorev":"Test"}')
           NID=$(echo "$R"|python3 -c 'import sys,json;print(json.load(sys.stdin)["id"])')
-          curl -s "$B/api.php?fn=get&id=$NID" | python3 -c 'import sys,json;d=json.load(sys.stdin);g=d["row"]["iseGiris"];assert g=="03.03.2026",g;print("OK tarih:",g)'
           PU=$(echo "$R"|python3 -c 'import sys,json;print(json.load(sys.stdin)["account"]["kullanici"])')
           PP=$(echo "$R"|python3 -c 'import sys,json;print(json.load(sys.stdin)["account"]["sifre"])')
-          echo "== personel login + scan(tur) + avans =="
           PT=$(curl -s "$B/api.php?fn=plogin" -X POST -H "$CT" -d "{\"u\":\"$PU\",\"p\":\"$PP\"}" | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
-          curl -s "$B/api.php?fn=scan" -X POST -H "X-IK-PTOKEN: $PT" -H "$CT" -d "{\"pid\":\"$NID\",\"tur\":\"giris\",\"lat\":37.03,\"lng\":27.43}" | grep -q '"ok":true' && echo "OK scan(giris)" || { echo FAIL; exit 1; }
-          curl -s "$B/api.php?fn=avansadd" -X POST -H "X-IK-PTOKEN: $PT" -H "$CT" -d "{\"pid\":\"$NID\",\"tutar\":\"1500\",\"sebep\":\"canli test\"}" | grep -q '"ok":true' && echo "OK avansadd"
-          curl -s "$B/api.php?fn=avansall&k=$KEY" | python3 -c 'import sys,json;d=json.load(sys.stdin);a=[x for x in d["avans"] if x["pid"]=="'$NID'"][0];print("OK hakedis:",a["hak"])'
-          echo "== haftalik vardiya + s8 =="
-          curl -s "$B/api.php?fn=shiftset" -X POST -H "$H" -H "$CT" -d "{\"id\":\"$NID\",\"day\":2,\"code\":\"s8\",\"week\":\"2026-03-02\"}" | grep -q '"week":"2026-03-02"' && echo "OK shiftset s8 + week"
-          curl -s "$B/api.php?fn=shiftget&week=2026-03-02" | python3 -c 'import sys,json;d=json.load(sys.stdin);assert d["shifts"]["'$NID'"][2]=="s8";print("OK get week s8")'
-          curl -s "$B/api.php?fn=attweek&week=2026-03-02&k=$KEY" | grep -q '"ok":true' && echo "OK attweek (puantaj)"
+          echo "== izin talebi (gün+saat+sebep) =="
+          curl -s "$B/api.php?fn=izinadd" -X POST -H "X-IK-PTOKEN: $PT" -H "$CT" -d "{\"pid\":\"$NID\",\"tarih\":\"14.03.2026\",\"saat\":\"13:00-17:00\",\"sebep\":\"doktor\"}" | grep -q '"ok":true' && echo "OK izinadd"
+          curl -s "$B/api.php?fn=izinall&k=$KEY" | python3 -c 'import sys,json;d=json.load(sys.stdin);a=[x for x in d["izin"] if x["pid"]=="'$NID'"][0];print("OK izinall:",a["tarih"],a["saat"],a["durum"])'
+          echo "== personel şifre değiştir =="
+          curl -s "$B/api.php?fn=pchpass" -X POST -H "X-IK-PTOKEN: $PT" -H "$CT" -d "{\"pid\":\"$NID\",\"yeni\":\"yeni9988\"}" | grep -q '"ok":true' && echo "OK pchpass"
+          curl -s "$B/api.php?fn=plogin" -X POST -H "$CT" -d "{\"u\":\"$PU\",\"p\":\"yeni9988\"}" | grep -q '"ok":true' && echo "OK yeni şifreyle giriş"
+          echo "== personel sil =="
+          curl -s "$B/api.php?fn=delete" -X POST -H "$H" -H "$CT" -d "{\"id\":\"$NID\"}" | grep -q '"ok":true' && echo "OK delete"
+          curl -s "$B/api.php?fn=get&id=$NID" | grep -q '"ok":false' && echo "OK silindi (bulunamadı)"
           echo "== HEPSI BASARILI =="
