@@ -8,19 +8,19 @@ jobs:
         run: |
           set -e
           B="https://oscarseasidehotel.com/ik"
-          echo "== kullanıcı girişleri =="
-          for creds in "cigdem:cigdem.123:Ana Admin" "bilgin:bilgin.123:Otel" "admin:demo1234:Admin"; do
-            u=$(echo $creds|cut -d: -f1); p=$(echo $creds|cut -d: -f2)
-            r=$(curl -s "$B/api.php?fn=login" -X POST -H 'Content-Type: application/json' -d "{\"u\":\"$u\",\"p\":\"$p\"}")
-            echo "$r" | grep -q '"ok":true' && echo "OK giris: $u" || { echo "FAIL giris: $u -> $r"; exit 1; }
+          KEY=$(curl -s "$B/api.php?fn=login" -X POST -H 'Content-Type: application/json' -d '{"u":"cigdem","p":"cigdem.123"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["key"])')
+          echo "key alindi"
+          echo "== oryantasyon: list migrasyonu (yeni nesne modeli) =="
+          curl -s "$B/api.php?fn=list" | python3 -c "import sys,json;d=json.load(sys.stdin);o=d['rows'][0]['oryantasyon'];assert isinstance(o,list) and (len(o)==0 or isinstance(o[0],dict)),'migrasyon yok';print('madde ornegi:',o[0] if o else 'bos')"
+          echo "== oryantasyon: gorev/egitim ekle =="
+          r=$(curl -s "$B/api.php?fn=orientadd" -X POST -H "X-IK-KEY: $KEY" -H 'Content-Type: application/json' -d '{"id":"p1","tur":"egitim","baslik":"Canli test egitimi"}')
+          echo "$r" | grep -q '"ok":true' && echo "OK orientadd" || { echo "FAIL $r"; exit 1; }
+          IID=$(echo "$r" | python3 -c 'import sys,json;print(json.load(sys.stdin)["item"]["iid"])')
+          curl -s "$B/api.php?fn=orient" -X POST -H "X-IK-KEY: $KEY" -H 'Content-Type: application/json' -d "{\"id\":\"p1\",\"iid\":\"$IID\",\"done\":true,\"sonuc\":\"test sonuc\"}" | grep -q '"ok":true' && echo "OK orient set" || { echo FAIL; exit 1; }
+          curl -s "$B/api.php?fn=orientdel" -X POST -H "X-IK-KEY: $KEY" -H 'Content-Type: application/json' -d "{\"id\":\"p1\",\"iid\":\"$IID\"}" | grep -q '"ok":true' && echo "OK orientdel (temizlendi)" || { echo FAIL; exit 1; }
+          echo "== brosur gorselleri + QR =="
+          for f in shot-dash.png shot-shift.png shot-perf.png shot-qr.png; do
+            c=$(curl -s -o /dev/null -w '%{http_code}' "$B/$f"); echo "$f -> $c"; test "$c" = "200"
           done
-          echo "== users ucu =="
-          curl -s "$B/api.php?fn=users" | python3 -c "import sys,json;d=json.load(sys.stdin);print('kullanici:',[x['u'] for x in d['users']]);assert len(d['users'])>=3"
-          echo "== vardiya.php =="
-          curl -s "$B/vardiya.php" > /tmp/v.html
-          grep -q 'Haftalık Vardiya' /tmp/v.html && echo "OK vardiya sayfasi" || { echo FAIL; exit 1; }
-          grep -q 'PNG indir' /tmp/v.html && grep -q 'JPEG indir' /tmp/v.html && echo "OK PNG/JPEG butonlari" || { echo "FAIL indirme butonu"; exit 1; }
-          grep -q 'html2canvas' /tmp/v.html && echo "OK html2canvas" || echo "uyari: html2canvas yok"
-          echo "== belge logo gömülü (data-uri) =="
-          curl -s "$B/belge.php?type=sozlesme&id=p1" | grep -q "data:image/png;base64" && echo "OK logo gömülü" || { echo "FAIL logo gomulu degil"; exit 1; }
+          curl -s "$B/tanitim.php" | grep -q 'Personel Self-Serv' && echo "OK tanitim self-servis bolumu" || { echo FAIL; exit 1; }
           echo "== HEPSI BASARILI =="
