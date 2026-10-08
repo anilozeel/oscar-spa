@@ -303,6 +303,8 @@ export function StoreProvider({ children }) {
       therapistId: isFree ? null : therapistId,
       payType, commissionUsd, date: ymd(), archived: true, createdAt: Date.now(),
     }
+    // Merkez yönetim panosu için bugünkü SPA cirosu kaydı (aynı origin /menu); hata akışı bozmaz
+    try { fetch('/menu/api.php?fn=sparec', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount, pm: payType, service: serviceName }) }).catch(() => {}) } catch { /* yoksay */ }
     const commission = (!isFree && commissionUsd > 0)
       ? { id: uid(), saleId: sale.id, therapistId, therapist: therapist?.name || '', type: effType, usd: commissionUsd, paid: false, date: ymd(), createdAt: Date.now() }
       : null
