@@ -5,7 +5,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          B=$(curl -s "https://www.oscarseasidehotel.com/ik/")
-          echo "scrim base fix (.scrim{display:none): $(echo "$B" | grep -oc '.scrim{display:none')"
-          echo "app grid: $(echo "$B" | grep -oc 'grid-template-columns:238px 1fr')"
-          echo "gi base: $(echo "$B" | grep -oc '.gi{width:18px')"
+          BASE="https://www.oscarseasidehotel.com/ik"
+          echo "== api list =="
+          curl -s "$BASE/api.php?fn=list" | python3 -c "import sys,json;d=json.load(sys.stdin);print('ok:',d.get('ok'),'| personel:',len(d.get('rows',[])));[print(' -',r['ad'],r['soyad'],'/',r.get('departman'),'/',r.get('gorev')) for r in d.get('rows',[])]" || echo "LISTE HATASI"
+          echo "== login =="
+          curl -s -X POST "$BASE/api.php?fn=login" -H "Content-Type: application/json" -d '{"u":"admin","p":"demo1234"}' | python3 -c "import sys,json;d=json.load(sys.stdin);print('login ok:',d.get('ok'))"
+          echo "== belge (Soner sozlesme) pozisyon dolu mu =="
+          curl -s "$BASE/belge.php?type=sozlesme&id=p5" | grep -o 'Resepsiyonist' | head -1
+          echo "== belge basligi =="
+          curl -s "$BASE/belge.php?type=zimmet&id=p3" | grep -o 'ZİMMET FORMU' | head -1
