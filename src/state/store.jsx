@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, useCallback, useEffect } from 'react'
+import { createContext, useContext, useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import * as mock from '../data/mock.js'
 import { notifyAssignment } from '../lib/notify.js'
 import { sendWhatsApp, waMsg } from '../lib/wa.js'
@@ -178,22 +178,31 @@ export function StoreProvider({ children }) {
   }, [authUid, user?.therapistId, user?.name])
 
   // Merkez yönetim panosuna bugünkü SPA cirosunu gönder (oscar-spa kendi verisinden hesaplar; aynı origin /menu)
-  useEffect(() => {
+  const salesRef = useRef(sales)
+  useEffect(() => { salesRef.current = sales }, [sales])
+  const pushSpaDay = useCallback(() => {
     const today = ymd()
-    const todays = (sales || []).filter((s) => (s.date || '') === today)
+    const todays = (salesRef.current || []).filter((s) => (s.date || '') === today)
     const total = todays.reduce((a, s) => a + (Number(s.amount) || 0), 0)
     const pm = {}
     todays.forEach((s) => { const k = s.payType || 'other'; pm[k] = (pm[k] || 0) + (Number(s.amount) || 0) })
-    const id = setTimeout(() => {
-      try {
-        fetch('/menu/api.php?fn=spaday', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ total, count: todays.length, pm }),
-        }).catch(() => {})
-      } catch { /* yoksay */ }
-    }, 1200)
-    return () => clearTimeout(id)
-  }, [sales])
+    try {
+      fetch('/menu/api.php?fn=spaday', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ total, count: todays.length, pm }),
+      }).catch(() => {})
+    } catch { /* yoksay */ }
+  }, [])
+  // Açılışta, odak/görünürlükte ve her 60 sn'de bir senkronla (uygulama açıkken güncel kalır)
+  useEffect(() => {
+    const onVis = () => { if (document.visibilityState === 'visible') pushSpaDay() }
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('focus', pushSpaDay)
+    const id = setInterval(pushSpaDay, 60000)
+    return () => { document.removeEventListener('visibilitychange', onVis); window.removeEventListener('focus', pushSpaDay); clearInterval(id) }
+  }, [pushSpaDay])
+  // Satış değişince kısa gecikmeyle gönder
+  useEffect(() => { const id = setTimeout(pushSpaDay, 1000); return () => clearTimeout(id) }, [sales, pushSpaDay])
 
   const canAccess = useCallback((key) => {
     if (!user) return false
