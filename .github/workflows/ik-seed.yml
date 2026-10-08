@@ -1,0 +1,102 @@
+name: IK Seed Ekim
+on: workflow_dispatch
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ekim maas verisi (ise giris + ucretsiz izin + avans)
+        run: |
+          python3 - <<'PY'
+          import json, urllib.request, urllib.parse, sys
+
+          BASE = "https://oscarseasidehotel.com/ik/api.php"
+
+          def call(fn, data=None, key=None, method=None, qs=None):
+              url = BASE + "?fn=" + fn
+              if qs: url += "&" + urllib.parse.urlencode(qs)
+              headers = {"Content-Type": "application/json"}
+              if key: headers["X-IK-KEY"] = key
+              body = None
+              if data is not None:
+                  body = json.dumps(data).encode("utf-8")
+              req = urllib.request.Request(url, data=body, headers=headers, method=method or ("POST" if data is not None else "GET"))
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  return json.loads(r.read().decode("utf-8"))
+
+          def norm(s):
+              s = s or ""
+              for a,b in [("İ","i"),("I","i"),("ı","i"),("Ş","s"),("ş","s"),("Ğ","g"),("ğ","g"),("Ü","u"),("ü","u"),("Ö","o"),("ö","o"),("Ç","c"),("ç","c")]:
+                  s = s.replace(a,b)
+              return s.lower().strip()
+
+          # 1) Login
+          login = call("login", {"u":"cigdem","p":"cigdem.123"})
+          KEY = login["key"]
+          print("Login OK, key uzunluk:", len(KEY))
+
+          # 2) Personel listesi
+          rows = call("list")["rows"]
+          print("Toplam personel:", len(rows))
+          def full(r): return norm((r.get("ad","")+" "+r.get("soyad","")))
+
+          def find(pred):
+              return [r for r in rows if pred(full(r))]
+
+          bilgin = find(lambda n: "bilgin" in n)
+          gulsen = find(lambda n: "gulsen" in n)
+          muhammed = find(lambda n: "muhammed" in n and "yildirim" in n)
+
+          for label, lst in [("bilgin",bilgin),("gulsen",gulsen),("muhammed yildirim",muhammed)]:
+              print(f"Eslesme [{label}]:", [(r['id'], r.get('ad'), r.get('soyad'), r.get('iseGiris')) for r in lst])
+
+          def set_hire(r, d):
+              res = call("save", {"id": r["id"], "iseGiris": d}, key=KEY)
+              print(f"  ise giris -> {d} :", res.get("ok"), r.get("ad"), r.get("soyad"))
+
+          # 3) bilgin: 01.10.2026 ise giris + 5000 onayli avans (idempotent)
+          if len(bilgin)==1:
+              b = bilgin[0]
+              set_hire(b, "01.10.2026")
+              SEBEP = "Ekim avansi (sistem)"
+              av = call("avansall", key=KEY).get("avans", [])
+              exists = any(str(a.get("pid"))==str(b["id"]) and a.get("sebep")==SEBEP for a in av)
+              if exists:
+                  print("  avans zaten var, atlandi")
+              else:
+                  res = call("avansadd", {"pid": b["id"], "tutar": 5000, "onayli": 1, "by": "Sistem", "sebep": SEBEP}, key=KEY)
+                  print("  avans 5000 (onayli):", res.get("ok"))
+          else:
+              print("UYARI: bilgin tek personel olarak bulunamadi, atlandi")
+
+          # 4) gulsen: 01.10.2026 ise giris + 1-5 Ekim ucretsiz izin (Ui)
+          # Ekim 2026: 1=Per,2=Cum,3=Cmt,4=Paz (hafta Pzt 2026-09-28, gun idx 3,4,5,6); 5=Pzt (hafta 2026-10-05, idx 0)
+          if len(gulsen)==1:
+              g = gulsen[0]
+              set_hire(g, "01.10.2026")
+              for week, days in [("2026-09-28",[3,4,5,6]), ("2026-10-05",[0])]:
+                  for d in days:
+                      res = call("shiftset", {"id": g["id"], "day": d, "code": "ucretsiz", "week": week}, key=KEY)
+                      print(f"  ucretsiz {week} gun{d}:", res.get("ok"))
+          else:
+              print("UYARI: gulsen tek personel olarak bulunamadi, atlandi")
+
+          # 5) muhammed yildirim: 08.10.2026 ise giris
+          if len(muhammed)==1:
+              set_hire(muhammed[0], "08.10.2026")
+          else:
+              print("UYARI: muhammed yildirim tek personel olarak bulunamadi, atlandi")
+
+          # 6) Dogrulama: rapor
+          print("== DOGRULAMA (rapor) ==")
+          rap = call("rapor", key=KEY, qs={"k": KEY})
+          want = set()
+          for lst in (bilgin,gulsen,muhammed):
+              for r in lst: want.add(r["id"])
+          for row in rap.get("rows", []):
+              if row.get("pid") in want:
+                  print("  ", row.get("ad"), "| aktifGun", row.get("activeDays"),
+                        "| Ui", row.get("ucretsizGun"), "| R", row.get("raporGun"),
+                        "| G", row.get("gelmedigi"), "| hakedis", row.get("hakedis"),
+                        "| avans", row.get("avansAy"), "| netAlacak", row.get("netAlacak"), row.get("para"))
+          print("== BITTI ==")
+          PY
