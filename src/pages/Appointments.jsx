@@ -1,5 +1,4 @@
 import { useState, useMemo, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useStore } from '../state/store.jsx'
 import { PageHead, Panel, Button, Badge, Modal, Helper } from '../components/ui.jsx'
 import Icon from '../components/icons.jsx'
@@ -302,10 +301,15 @@ function ApptView({ appt, store, onClose }) {
 
 // ---- Randevu düzenleme -------------------------------------------------------
 const DURATIONS = [30, 40, 45, 50, 60, 75, 80, 90, 120]
+// Randevu düzenleme ekranından doğrudan alınabilecek ödeme yöntemleri
+const PAY_METHODS = [
+  { id: 'cash', label: 'Nakit', icon: 'cash', variant: 'sage' },
+  { id: 'card', label: 'Kredi Kartı', icon: 'card', variant: 'sage' },
+  { id: 'folio', label: 'Odaya Yaz', icon: 'room', variant: 'gold' },
+]
 
 function EditAppt({ appt, store, onClose }) {
-  const { services, therapists, fmtTRY, updateAppointment, cancelAppointment, PACKAGE_DURATION } = store
-  const nav = useNavigate()
+  const { services, therapists, fmtTRY, updateAppointment, cancelAppointment, closeTicket, PACKAGE_DURATION } = store
   const [serviceId, setServiceId] = useState(appt.serviceId || 'undecided')
   const [variant, setVariant] = useState(appt.variant || 'solo')
   const [time, setTime] = useState(appt.time)
@@ -315,6 +319,9 @@ function EditAppt({ appt, store, onClose }) {
   const [phone, setPhone] = useState(appt.phone || '')
   const [price, setPrice] = useState(appt.price || 0)
   const [status, setStatus] = useState(appt.status)
+  const [payOpen, setPayOpen] = useState(false)
+  const [payType, setPayType] = useState('')
+  const [roomNo, setRoomNo] = useState('')
 
   const svc = services.find((s) => s.id === serviceId)  // undefined => "Girişte Belirlenecek"
   const isPackage = svc?.hasPackage && variant === 'package'
@@ -352,6 +359,38 @@ function EditAppt({ appt, store, onClose }) {
     if (ok) onClose()
   }
   const remove = () => { cancelAppointment(appt.id); onClose() }
+
+  // Randevu ekranından doğrudan ödeme al — ayrı adisyon ekranına gitmeden tamamla
+  const takePayment = () => {
+    if (!payType) return
+    if (payType === 'folio' && !roomNo.trim()) return
+    const t = therapists.find((x) => x.id === therapistId)
+    const commissionType = svc ? (svc.hasPackage ? (isPackage ? 'package' : 'massage') : svc.commissionType) : (appt.commissionType || 'none')
+    const serviceName = (svc ? svc.name : 'Girişte Belirlenecek') + (isPackage ? ' · Paket' : '')
+    // Düzenlenen güncel değerleri önce randevuya işle, sonra adisyonu kapat
+    updateAppointment(appt.id, {
+      time, end, serviceId,
+      service: svc ? svc.name : 'Girişte Belirlenecek',
+      variant: svc?.hasPackage ? variant : null,
+      commissionType, undecided: svc ? false : true, freeHammam: !!svc?.free,
+      therapistId: therapistId || null, therapist: t?.name || null,
+      guest: guestName.trim(), phone: phone.trim(), price: Number(price),
+    })
+    const liveAppt = {
+      ...appt, time, end, serviceId,
+      service: svc ? svc.name : 'Girişte Belirlenecek',
+      variant: svc?.hasPackage ? variant : null,
+      commissionType, undecided: svc ? false : true, freeHammam: !!svc?.free,
+      therapistId: therapistId || null, therapist: t?.name || null,
+      guest: guestName.trim(), phone: phone.trim(), price: Number(price),
+    }
+    closeTicket(liveAppt, {
+      therapistId, payType,
+      roomNo: payType === 'folio' ? roomNo.trim() : undefined,
+      override: { serviceName, price: Number(price), commissionType },
+    })
+    onClose()
+  }
 
   return (
     <Modal title="Randevuyu Düzenle" sub={appt.undecided ? 'Girişte ne seçildiğini buradan kaydedin' : appt.service} onClose={onClose}
@@ -432,9 +471,42 @@ function EditAppt({ appt, store, onClose }) {
       {!canSave && <p className="small" style={{ color: 'var(--gold-deep)', marginTop: 12 }}>Kaydetmek için misafir adı ve geçerli telefon numarası gerekli.</p>}
 
       {appt.status !== 'done' && (
-        <Button block variant="ghost" icon="pos" style={{ marginTop: 12 }} onClick={() => { onClose(); nav('/satis') }}>
-          Adisyona / Ödemeye Git
-        </Button>
+        !payOpen ? (
+          <Button block icon="pos" disabled={!canSave} style={{ marginTop: 12 }} onClick={() => setPayOpen(true)}>
+            Ödeme Al
+          </Button>
+        ) : (
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
+            <div className="between" style={{ marginBottom: 10 }}>
+              <label className="small" style={{ fontWeight: 600, color: 'var(--ink-2)' }}>Ödeme yöntemi · {fmtTRY(Number(price) || 0)}</label>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setPayOpen(false); setPayType(''); setRoomNo('') }}>Vazgeç</button>
+            </div>
+            <div className="center gap-sm wrap">
+              {PAY_METHODS.map((p) => {
+                const I = Icon[p.icon]
+                return (
+                  <button key={p.id}
+                    className={`btn ${payType === p.id ? (p.variant === 'gold' ? 'btn-gold' : 'btn-primary') : 'btn-ghost'}`}
+                    onClick={() => setPayType(p.id)}>
+                    {I ? <I /> : null} {p.label}
+                  </button>
+                )
+              })}
+            </div>
+            {payType === 'folio' && (
+              <div className="field" style={{ marginTop: 12 }}>
+                <label>Oda numarası <span style={{ color: 'var(--danger)' }}>*</span></label>
+                <input className="input" value={roomNo} autoFocus onChange={(e) => setRoomNo(e.target.value)} placeholder="Örn. 216" />
+                <p className="muted small" style={{ marginTop: 6 }}>Tutar bu oda folyosuna yazılacak.</p>
+              </div>
+            )}
+            <Button block icon="check" style={{ marginTop: 12 }}
+              disabled={!payType || (payType === 'folio' && !roomNo.trim())}
+              onClick={takePayment}>
+              Ödemeyi Tamamla
+            </Button>
+          </div>
+        )
       )}
     </Modal>
   )
