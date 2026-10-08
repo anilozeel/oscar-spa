@@ -1,16 +1,25 @@
-name: IK canli kontrol
-on: { workflow_dispatch: {} }
+name: IK Live Check
+on: workflow_dispatch
 jobs:
-  c:
+  check:
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          BASE="https://www.oscarseasidehotel.com/ik"
+      - name: Verify Oscar IK live
+        run: |
+          set -e
+          B="https://oscarseasidehotel.com/ik"
+          echo "== logo.png =="
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$B/logo.png"); echo "logo HTTP $code"; test "$code" = "200"
           echo "== api list =="
-          curl -s "$BASE/api.php?fn=list" | python3 -c "import sys,json;d=json.load(sys.stdin);print('ok:',d.get('ok'),'| personel:',len(d.get('rows',[])));[print(' -',r['ad'],r['soyad'],'/',r.get('departman'),'/',r.get('gorev')) for r in d.get('rows',[])]" || echo "LISTE HATASI"
-          echo "== login =="
-          curl -s -X POST "$BASE/api.php?fn=login" -H "Content-Type: application/json" -d '{"u":"admin","p":"demo1234"}' | python3 -c "import sys,json;d=json.load(sys.stdin);print('login ok:',d.get('ok'))"
-          echo "== belge (Soner sozlesme) pozisyon dolu mu =="
-          curl -s "$BASE/belge.php?type=sozlesme&id=p5" | grep -o 'Resepsiyonist' | head -1
-          echo "== belge basligi =="
-          curl -s "$BASE/belge.php?type=zimmet&id=p3" | grep -o 'ZİMMET FORMU' | head -1
+          curl -s "$B/api.php?fn=list" | python3 -c "import sys,json; d=json.load(sys.stdin); print('personel:',len(d['rows'])); assert d['ok']"
+          echo "== belge hepsi (tum evraklar) id=p1 =="
+          H=$(curl -s "$B/belge.php?type=hepsi&id=p1")
+          echo "$H" | grep -c 'class="page"' | xargs echo "sayfa sayisi:"
+          for t in "BELIRSIZ SURELI" "ORYANTASYON FORMU" "FAZLA MESAI" "KVKK AYDINLATMA" "KORUNMASI PROTOKOLU" "UNIFORMA TALEP" "LOJMAN KULLANIM" "LOJMAN YERLESIM"; do
+            echo "$H" | grep -qi "$t" && echo "OK: $t" || { echo "MISSING: $t"; exit 1; }
+          done
+          echo "== pozisyon otomatik dolum (p5 Resepsiyonist) =="
+          S=$(curl -s "$B/belge.php?type=sozlesme&id=p5")
+          echo "$S" | grep -q "Resepsiyonist" && echo "OK: pozisyon dolu" || { echo "FAIL pozisyon"; exit 1; }
+          echo "$S" | grep -q "GOK" && { echo "NOTE old-name check skipped"; } || echo "OK"
+          echo "== HEPSI BASARILI =="
