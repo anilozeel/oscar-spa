@@ -86,17 +86,30 @@ jobs:
           else:
               print("UYARI: muhammed yildirim tek personel olarak bulunamadi, atlandi")
 
-          # 6) Dogrulama: rapor
+          # 6) Dogrulama: rapor (+ assert: basarili ise bu run success olur)
           print("== DOGRULAMA (rapor) ==")
           rap = call("rapor", key=KEY, qs={"k": KEY})
-          want = set()
-          for lst in (bilgin,gulsen,muhammed):
-              for r in lst: want.add(r["id"])
-          for row in rap.get("rows", []):
-              if row.get("pid") in want:
-                  print("  ", row.get("ad"), "| aktifGun", row.get("activeDays"),
+          byid = {row.get("pid"): row for row in rap.get("rows", [])}
+          errs = []
+          if len(bilgin)!=1: errs.append(f"bilgin eslesme sayisi={len(bilgin)} (1 bekleniyordu)")
+          if len(gulsen)!=1: errs.append(f"gulsen eslesme sayisi={len(gulsen)} (1 bekleniyordu)")
+          if len(muhammed)!=1: errs.append(f"muhammed yildirim eslesme sayisi={len(muhammed)} (1 bekleniyordu)")
+          def show(lst,label):
+              if len(lst)==1:
+                  row=byid.get(lst[0]["id"],{})
+                  print(f"  [{label}]", row.get("ad"), "| aktifGun", row.get("activeDays"),
                         "| Ui", row.get("ucretsizGun"), "| R", row.get("raporGun"),
                         "| G", row.get("gelmedigi"), "| hakedis", row.get("hakedis"),
                         "| avans", row.get("avansAy"), "| netAlacak", row.get("netAlacak"), row.get("para"))
-          print("== BITTI ==")
+                  return row
+              return {}
+          rb=show(bilgin,"bilgin"); rg=show(gulsen,"gulsen"); rm=show(muhammed,"muhammed")
+          if rb and int(rb.get("avansAy") or 0) < 5000: errs.append(f"bilgin avansAy={rb.get('avansAy')} (>=5000 bekleniyordu)")
+          if rg and int(rg.get("ucretsizGun") or 0) != 5: errs.append(f"gulsen ucretsizGun={rg.get('ucretsizGun')} (5 bekleniyordu)")
+          if rm and int(rm.get("activeDays") or 0) != 24: errs.append(f"muhammed activeDays={rm.get('activeDays')} (24 bekleniyordu, 08.10 giris)")
+          if errs:
+              print("HATALAR:");
+              for e in errs: print("  - "+e)
+              sys.exit(1)
+          print("== TUM DOGRULAMALAR BASARILI ==")
           PY
