@@ -177,6 +177,24 @@ export function StoreProvider({ children }) {
     return () => unsubs.forEach((u) => u())
   }, [authUid, user?.therapistId, user?.name])
 
+  // Merkez yönetim panosuna bugünkü SPA cirosunu gönder (oscar-spa kendi verisinden hesaplar; aynı origin /menu)
+  useEffect(() => {
+    const today = ymd()
+    const todays = (sales || []).filter((s) => (s.date || '') === today)
+    const total = todays.reduce((a, s) => a + (Number(s.amount) || 0), 0)
+    const pm = {}
+    todays.forEach((s) => { const k = s.payType || 'other'; pm[k] = (pm[k] || 0) + (Number(s.amount) || 0) })
+    const id = setTimeout(() => {
+      try {
+        fetch('/menu/api.php?fn=spaday', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ total, count: todays.length, pm }),
+        }).catch(() => {})
+      } catch { /* yoksay */ }
+    }, 1200)
+    return () => clearTimeout(id)
+  }, [sales])
+
   const canAccess = useCallback((key) => {
     if (!user) return false
     const a = mock.ROLE_ACCESS[user.role]
@@ -303,8 +321,6 @@ export function StoreProvider({ children }) {
       therapistId: isFree ? null : therapistId,
       payType, commissionUsd, date: ymd(), archived: true, createdAt: Date.now(),
     }
-    // Merkez yönetim panosu için bugünkü SPA cirosu kaydı (aynı origin /menu); hata akışı bozmaz
-    try { fetch('/menu/api.php?fn=sparec', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount, pm: payType, service: serviceName }) }).catch(() => {}) } catch { /* yoksay */ }
     const commission = (!isFree && commissionUsd > 0)
       ? { id: uid(), saleId: sale.id, therapistId, therapist: therapist?.name || '', type: effType, usd: commissionUsd, paid: false, date: ymd(), createdAt: Date.now() }
       : null
