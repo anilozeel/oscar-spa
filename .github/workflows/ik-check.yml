@@ -1,0 +1,13 @@
+name: IK canli kontrol
+on: { workflow_dispatch: {} }
+jobs:
+  c:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          B=$(curl -s "https://www.oscarseasidehotel.com/ik/")
+          echo "boyut: $(echo "$B" | wc -c) bayt"
+          echo "gi base (.gi{width:18px): $(echo "$B" | grep -oc '.gi{width:18px')"
+          echo "os-dark otomatik kalkmis mi (0 olmali): $(echo "$B" | grep -oc 'prefers-color-scheme:dark){:root:not')"
+          echo "data-theme light: $(echo "$B" | grep -oc 'data-theme=\"light\"')"
+          echo "app grid: $(echo "$B" | grep -oc 'grid-template-columns:238px 1fr')"
