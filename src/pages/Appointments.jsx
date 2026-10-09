@@ -305,6 +305,7 @@ const DURATIONS = [30, 40, 45, 50, 60, 75, 80, 90, 120]
 const PAY_METHODS = [
   { id: 'cash', label: 'Nakit', icon: 'cash', variant: 'sage' },
   { id: 'card', label: 'Kredi Kartı', icon: 'card', variant: 'sage' },
+  { id: 'transfer', label: 'Havale', icon: 'finance', variant: 'sage' },
   { id: 'folio', label: 'Odaya Yaz', icon: 'room', variant: 'gold' },
 ]
 
