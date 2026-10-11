@@ -1,0 +1,39 @@
+name: Cloud Functions deploy
+
+# Kullanıcı yönetimi için admin fonksiyonlarını (adminSetUserPassword, adminDeleteUser)
+# ve mevcut sendAssignmentPush'u Firebase'e dağıtır.
+#
+# TEK SEFERLİK KURULUM:
+#   1) Bilgisayarda: npm i -g firebase-tools && firebase login:ci  → bir token verir
+#   2) GitHub repo > Settings > Secrets and variables > Actions > New repository secret
+#      Ad: FIREBASE_TOKEN   Değer: (1. adımdaki token)
+#   3) Actions sekmesinden bu iş akışını "Run workflow" ile çalıştır.
+# Token yoksa iş akışı güvenle başarısız olur; dağıtılmış mevcut fonksiyonlar etkilenmez.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['functions/**']
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install functions deps
+        run: npm --prefix functions ci || npm --prefix functions install
+      - name: Install firebase-tools
+        run: npm i -g firebase-tools@13.29.1
+      - name: Deploy functions
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          if [ -z "$FIREBASE_TOKEN" ]; then
+            echo "FIREBASE_TOKEN secret tanımlı değil. Kurulum için iş akışı başlığındaki adımları izleyin." >&2
+            exit 1
+          fi
+          firebase deploy --only functions --project oscar-spa-71823 --token "$FIREBASE_TOKEN" --non-interactive

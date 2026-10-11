@@ -3,10 +3,12 @@ import * as mock from '../data/mock.js'
 import { notifyAssignment } from '../lib/notify.js'
 import { sendWhatsApp, waMsg } from '../lib/wa.js'
 import { postSpaElektra } from '../lib/elektra.js'
-import { FIREBASE_ENABLED, db, auth } from '../lib/firebase.js'
+import { FIREBASE_ENABLED, db, auth, functions } from '../lib/firebase.js'
 import { AUTH_EMAIL_SUFFIX } from '../lib/firebaseConfig.js'
+import { signUpAuthUser } from '../lib/authAdmin.js'
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, getDoc } from 'firebase/firestore'
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword } from 'firebase/auth'
+import { httpsCallable } from 'firebase/functions'
 
 const StoreCtx = createContext(null)
 export const useStore = () => useContext(StoreCtx)
@@ -44,6 +46,30 @@ const mustChangeFor = async (acc) => {
   try { const s = await getDoc(doc(db, 'appusers', acc.username.toLowerCase())); return !(s.exists() && s.data().pwChanged) } catch { return false }
 }
 
+// Firestore 'appusers' roster'ından kullanıcı belgesini getir (ad/rol/terapist/aktiflik).
+// Giriş yapmış kullanıcı (Firebase Auth) için okunabilir; yoksa null.
+const rosterDoc = async (uname) => {
+  if (!FIREBASE_ENABLED) return null
+  try { const s = await getDoc(doc(db, 'appusers', String(uname || '').toLowerCase())); return s.exists() ? s.data() : null } catch { return null }
+}
+// Hesabı seed ACCOUNTS + roster birleşiminden çöz (roster seed'i ezer; yeni kullanıcı
+// yalnızca roster'da olabilir). active===false ise giriş engellenir.
+const resolveAccount = async (uname) => {
+  const id = String(uname || '').trim().toLowerCase()
+  if (!id) return null
+  const seed = findAcc(id)
+  const r = await rosterDoc(id)
+  if (!seed && !(r && r.role)) return null
+  return {
+    username: (seed && seed.username) || (r && r.username) || id,
+    name: (r && r.name) || (seed && seed.name) || id,
+    role: (r && r.role) || (seed && seed.role) || 'reception',
+    therapistId: ((r && r.therapistId !== undefined) ? r.therapistId : (seed ? seed.therapistId : null)) || null,
+    active: (r && r.active !== undefined) ? r.active : true,
+    mustChange: (seed && seed.mustChange) || (r && r.mustChange) || false,
+  }
+}
+
 export function StoreProvider({ children }) {
   const [user, setUser] = useState(loadUser)      // oturum kalıcı
   const [authUid, setAuthUid] = useState(null)    // Firebase Auth hazır olunca dolar
@@ -54,6 +80,7 @@ export function StoreProvider({ children }) {
   const [guests, setGuests] = useState(FIREBASE_ENABLED ? [] : mock.guests)
   const [sales, setSales] = useState([])            // kapatılan adisyonlar (arşiv)
   const [commissions, setCommissions] = useState([]) // ödeme anında yazılan primler
+  const [appUsers, setAppUsers] = useState([])       // Firestore 'appusers' roster (kullanıcı yönetimi)
   const [toasts, setToasts] = useState([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -65,20 +92,29 @@ export function StoreProvider({ children }) {
 
   // --- Auth (kullanıcı adı + şifre; Firebase Auth veya yerel) ---------------
   const login = useCallback(async (username, password) => {
-    const acc = findAcc(username)
+    const uname = String(username || '').trim().toLowerCase()
     if (FIREBASE_ENABLED) {
-      if (!acc) return false // yalnızca tanımlı personel girebilir
+      // Önce Firebase Auth ile doğrula (seed veya sonradan eklenen kullanıcı fark etmez)
       try {
-        await signInWithEmailAndPassword(auth, acc.username.toLowerCase() + AUTH_EMAIL_SUFFIX, password)
-        const u = buildUser(acc); u.needPwChange = await mustChangeFor(acc); setUser(u); persistUser(u) // anında; onAuthStateChanged de teyit eder
-        return true
+        await signInWithEmailAndPassword(auth, uname + AUTH_EMAIL_SUFFIX, password)
       } catch { return false }
+      // Hesap bilgisini (rol/ad/terapist/aktiflik) seed + roster'dan çöz
+      const acc = await resolveAccount(uname)
+      if (!acc) { try { await signOut(auth) } catch { /* no-op */ } return false }
+      if (acc.active === false) {
+        try { await signOut(auth) } catch { /* no-op */ }
+        toast('Hesabınız pasif — yöneticinize başvurun', 'warn')
+        return false
+      }
+      const u = buildUser(acc); u.needPwChange = await mustChangeFor(acc); setUser(u); persistUser(u)
+      return true
     }
     // yerel mod (demo şifreleri kod içinde)
+    const acc = findAcc(uname)
     if (!acc || acc.password !== password) return false
     const u = buildUser(acc); setUser(u); persistUser(u)
     return true
-  }, [])
+  }, [toast])
 
   const logout = useCallback(() => {
     setUser(null)
@@ -112,14 +148,16 @@ export function StoreProvider({ children }) {
     const unsub = onAuthStateChanged(auth, (fb) => {
       if (fb && fb.email) {
         setAuthUid(fb.uid)
-        const acc = findAcc(fb.email.split('@')[0])
-        if (acc) {
+        const uname = fb.email.split('@')[0]
+        resolveAccount(uname).then((acc) => {
+          if (!acc) return
+          if (acc.active === false) { signOut(auth).catch(() => {}); return }
           const u = buildUser(acc); setUser(u); persistUser(u)
           mustChangeFor(acc).then((need) => setUser((cur) => {
-            if (!cur || cur.username !== acc.username) return cur
+            if (!cur || String(cur.username).toLowerCase() !== String(acc.username).toLowerCase()) return cur
             const nu = { ...cur, needPwChange: need }; persistUser(nu); return nu
           }))
-        }
+        })
       } else {
         setAuthUid(null); setUser(null)
         try { localStorage.removeItem('oscarspa.user') } catch { /* no-op */ }
@@ -173,6 +211,7 @@ export function StoreProvider({ children }) {
       sub('packages', setPackages, byNewest),
       sub('sales', setSales, byNewest),
       sub('commissions', setCommissions, byNewest),
+      sub('appusers', setAppUsers),
     ]
     return () => unsubs.forEach((u) => u())
   }, [authUid, user?.therapistId, user?.name])
@@ -483,11 +522,113 @@ export function StoreProvider({ children }) {
     }
   }, [sales, appointments, guests])
 
+  // --- Kullanıcı yönetimi (Ayarlar) -----------------------------------------
+  // Görünen kullanıcı listesi = seed ACCOUNTS ⊕ Firestore roster (ekleme/ezme).
+  const spaUsers = useMemo(() => {
+    const map = new Map()
+    for (const a of mock.ACCOUNTS) {
+      map.set(a.username.toLowerCase(), {
+        username: a.username, name: a.name, role: a.role,
+        therapistId: a.therapistId || null, active: true, seed: true,
+      })
+    }
+    for (const r of appUsers) {
+      const id = String(r.username || r.id || '').toLowerCase(); if (!id) continue
+      const ex = map.get(id)
+      if (!ex && !r.role) continue // yalnızca pwChanged bayrağı taşıyan belgeleri atla
+      map.set(id, {
+        username: (ex && ex.username) || r.username || r.id,
+        name: r.name != null ? r.name : (ex ? ex.name : id),
+        role: r.role != null ? r.role : (ex ? ex.role : 'reception'),
+        therapistId: r.therapistId !== undefined ? (r.therapistId || null) : (ex ? ex.therapistId : null),
+        active: r.active !== undefined ? r.active : (ex ? ex.active : true),
+        seed: ex ? ex.seed : false,
+      })
+    }
+    return [...map.values()].filter((u) => u.role)
+  }, [appUsers])
+
+  const spaAddUser = useCallback(async ({ username, name, role, therapistId, password }) => {
+    if (!FIREBASE_ENABLED) return { ok: false, error: 'Bulut kapalı' }
+    const uname = String(username || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '')
+    if (!uname) return { ok: false, error: 'Kullanıcı adı gerekli' }
+    if (!name || !name.trim()) return { ok: false, error: 'Ad Soyad gerekli' }
+    if (!mock.ROLES.find((r) => r.id === role)) return { ok: false, error: 'Geçersiz rol' }
+    if (String(password || '').length < 6) return { ok: false, error: 'Şifre en az 6 karakter olmalı' }
+    if (findAcc(uname) || appUsers.find((u) => String(u.username || u.id || '').toLowerCase() === uname && u.role)) {
+      return { ok: false, error: 'Bu kullanıcı adı zaten var' }
+    }
+    const su = await signUpAuthUser(uname, password)
+    if (!su.ok) return { ok: false, error: su.error === 'EMAIL_EXISTS' ? 'Bu kullanıcı adı zaten kayıtlı' : su.error }
+    try {
+      await setDoc(doc(db, 'appusers', uname), clean({
+        username: uname, name: name.trim(), role,
+        therapistId: role === 'therapist' ? (therapistId || null) : null,
+        active: true, createdAt: Date.now(),
+      }), { merge: true })
+      toast('Kullanıcı eklendi: ' + name.trim())
+      return { ok: true }
+    } catch { return { ok: false, error: 'Kayıt yazılamadı' } }
+  }, [appUsers, toast])
+
+  const spaUpdateUser = useCallback(async (username, patch) => {
+    if (!FIREBASE_ENABLED) return { ok: false, error: 'Bulut kapalı' }
+    const uname = String(username || '').trim().toLowerCase()
+    if (!uname) return { ok: false, error: 'Kullanıcı yok' }
+    try { await setDoc(doc(db, 'appusers', uname), clean(patch), { merge: true }); return { ok: true } }
+    catch { return { ok: false, error: 'Güncellenemedi' } }
+  }, [])
+
+  const spaSetUserActive = useCallback(async (username, active) => {
+    const r = await spaUpdateUser(username, { active: !!active })
+    if (r.ok) toast(active ? 'Kullanıcı aktifleştirildi' : 'Kullanıcı pasife alındı — giriş yapamaz')
+    else toast(r.error || 'İşlem başarısız', 'warn')
+    return r
+  }, [spaUpdateUser, toast])
+
+  // Yönetici: başka kullanıcıya yeni şifre ver (Cloud Function — admin yetkisi gerekir).
+  // Fonksiyon dağıtılmamışsa anlaşılır bir mesaj döner (kurulum: deploy-functions.yml).
+  const spaResetPassword = useCallback(async (username, password) => {
+    if (!FIREBASE_ENABLED || !functions) return { ok: false, error: 'Bulut kapalı' }
+    if (String(password || '').length < 6) return { ok: false, error: 'Şifre en az 6 karakter olmalı' }
+    try {
+      const call = httpsCallable(functions, 'adminSetUserPassword')
+      await call({ username: String(username).toLowerCase(), password: String(password) })
+      toast('Şifre güncellendi ✓')
+      return { ok: true }
+    } catch (e) {
+      const code = (e && e.code) ? String(e.code) : ''
+      if (code.indexOf('not-found') >= 0 || code.indexOf('internal') >= 0 || code.indexOf('unavailable') >= 0) {
+        return { ok: false, error: 'Şifre sıfırlama sunucu kurulumu gerektiriyor (tek seferlik). Ayrıntı için yöneticiye danışın.', setup: true }
+      }
+      if (code.indexOf('permission-denied') >= 0) return { ok: false, error: 'Bu işlem için yönetici (owner) yetkisi gerekli' }
+      return { ok: false, error: (e && e.message) || 'Şifre güncellenemedi' }
+    }
+  }, [toast])
+
+  // Yönetici: kullanıcıyı tamamen sil (Auth + roster) — Cloud Function.
+  const spaDeleteUser = useCallback(async (username) => {
+    if (!FIREBASE_ENABLED || !functions) return { ok: false, error: 'Bulut kapalı' }
+    try {
+      const call = httpsCallable(functions, 'adminDeleteUser')
+      await call({ username: String(username).toLowerCase() })
+      toast('Kullanıcı silindi ✓')
+      return { ok: true }
+    } catch (e) {
+      const code = (e && e.code) ? String(e.code) : ''
+      if (code.indexOf('not-found') >= 0 || code.indexOf('internal') >= 0 || code.indexOf('unavailable') >= 0) {
+        return { ok: false, error: 'Kalıcı silme sunucu kurulumu gerektiriyor; şimdilik “Pasif yap” ile giriş engellenir.', setup: true }
+      }
+      return { ok: false, error: (e && e.message) || 'Silinemedi' }
+    }
+  }, [toast])
+
   const value = {
     ...mock,
     KPIS: liveKpis, todayAppointments,
     FIREBASE_ENABLED,
     user, login, logout, canAccess, changePassword,
+    spaUsers, spaAddUser, spaUpdateUser, spaSetUserActive, spaResetPassword, spaDeleteUser,
     appointments, visibleAppointments, addAppointment, cancelAppointment, updateAppointment, findConflict, closeTicket,
     services, addService,
     packages, addPackage, activePackageFor,

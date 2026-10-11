@@ -1,18 +1,11 @@
 import { useState, useRef } from 'react'
 import { useStore } from '../state/store.jsx'
-import { PageHead, Panel, Badge, Chip, Avatar, Button } from '../components/ui.jsx'
+import { PageHead, Panel, Badge, Chip, Avatar, Button, Modal } from '../components/ui.jsx'
 import Icon from '../components/icons.jsx'
 import { sendWhatsApp } from '../lib/wa.js'
 import { spaElektraDiscover } from '../lib/elektra.js'
 
-const USERS = [
-  { name: 'Deniz Kaya', role: 'Owner / Genel Müdür', init: 'DK', on: true },
-  { name: 'Ayşe Yıldız', role: 'Spa Manager', init: 'AY', on: true },
-  { name: 'Resepsiyon 1', role: 'Resepsiyon', init: 'R1', on: true },
-  { name: 'Dita', role: 'Terapist', init: 'D', on: true },
-  { name: 'Sitti', role: 'Terapist', init: 'S', on: true },
-  { name: 'Muhasebe', role: 'Muhasebe', init: 'M', on: false },
-]
+const initialsOf = (nm) => String(nm || '').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
 
 function Toggle({ on, onChange }) {
   return (
@@ -24,7 +17,45 @@ function Toggle({ on, onChange }) {
 }
 
 export default function Settings() {
-  const { ROLES, toast, exportBackup, importBackup, wipeHistory, wipeAll, guests, appointments, packages, sales } = useStore()
+  const { ROLES, toast, exportBackup, importBackup, wipeHistory, wipeAll, guests, appointments, packages, sales,
+    user, therapists, FIREBASE_ENABLED, spaUsers, spaAddUser, spaUpdateUser, spaSetUserActive, spaResetPassword, spaDeleteUser, changePassword } = useStore()
+  const isOwner = user?.role === 'owner'
+  const roleName = (id) => (ROLES.find((r) => r.id === id) || {}).name || id
+  const [uModal, setUModal] = useState(null) // { mode:'add'|'edit'|'pw', u? }
+  const emptyForm = { username: '', name: '', role: 'reception', therapistId: '', password: '' }
+  const [uForm, setUForm] = useState(emptyForm)
+  const [uBusy, setUBusy] = useState(false)
+  const setF = (k, v) => setUForm((s) => ({ ...s, [k]: v }))
+  const openAdd = () => { setUForm(emptyForm); setUModal({ mode: 'add' }) }
+  const openEdit = (u) => { setUForm({ username: u.username, name: u.name || '', role: u.role, therapistId: u.therapistId || '', password: '' }); setUModal({ mode: 'edit', u }) }
+  const openPw = (u) => { setUForm({ ...emptyForm, username: u.username, name: u.name || '' }); setUModal({ mode: 'pw', u }) }
+  const closeU = () => { if (!uBusy) setUModal(null) }
+  const submitAdd = async () => {
+    setUBusy(true)
+    const r = await spaAddUser({ username: uForm.username, name: uForm.name, role: uForm.role, therapistId: uForm.therapistId, password: uForm.password })
+    setUBusy(false)
+    if (r.ok) setUModal(null); else toast(r.error || 'Eklenemedi', 'warn')
+  }
+  const submitEdit = async () => {
+    setUBusy(true)
+    const patch = { name: uForm.name.trim(), role: uForm.role, therapistId: uForm.role === 'therapist' ? (uForm.therapistId || null) : null }
+    const r = await spaUpdateUser(uModal.u.username, patch)
+    setUBusy(false)
+    if (r.ok) { toast('Kullanıcı güncellendi ✓'); setUModal(null) } else toast(r.error || 'Güncellenemedi', 'warn')
+  }
+  const submitPw = async () => {
+    if (String(uForm.password || '').length < 6) { toast('Şifre en az 6 karakter olmalı', 'warn'); return }
+    setUBusy(true)
+    const isSelf = String(uModal.u.username).toLowerCase() === String(user?.username).toLowerCase()
+    const r = isSelf ? await changePassword(uForm.password) : await spaResetPassword(uModal.u.username, uForm.password)
+    setUBusy(false)
+    if (r.ok) setUModal(null); else toast(r.error || 'Şifre güncellenemedi', 'warn')
+  }
+  const onToggleActive = async (u) => {
+    const isActive = u.active !== false
+    if (isActive && u.username.toLowerCase() === 'cigdem') { toast('Ana yönetici pasife alınamaz', 'warn'); return }
+    await spaSetUserActive(u.username, !isActive)
+  }
   const [integrations, setIntegrations] = useState({ pms: true, whatsapp: true, online: false, ai: false })
   const fileRef = useRef(null)
   const [waPhone, setWaPhone] = useState('')
@@ -78,17 +109,31 @@ export default function Settings() {
       <PageHead title="Ayarlar" sub="Kullanıcılar, roller, vergi, para birimi ve entegrasyonlar." />
 
       <div className="grid" style={{ gridTemplateColumns: '1.3fr 1fr', alignItems: 'start' }}>
-        <Panel title="Kullanıcılar & Roller">
-          {USERS.map((u) => (
-            <div key={u.name} className="list-row">
-              <Avatar text={u.init} size="sm" />
-              <div className="grow">
-                <div style={{ fontWeight: 600, color: 'var(--forest-ink)' }}>{u.name}</div>
-                <div className="muted small">{u.role}</div>
+        <Panel title="Kullanıcılar & Roller" action={isOwner ? <Button sm icon="plus" onClick={openAdd}>Yeni kullanıcı</Button> : null}>
+          {(spaUsers || []).map((u) => {
+            const active = u.active !== false
+            const self = String(u.username).toLowerCase() === String(user?.username).toLowerCase()
+            return (
+              <div key={u.username} className="list-row">
+                <Avatar text={initialsOf(u.name)} size="sm" />
+                <div className="grow">
+                  <div style={{ fontWeight: 600, color: 'var(--forest-ink)' }}>{u.name} {self && <span className="muted small">(siz)</span>}</div>
+                  <div className="muted small">@{u.username} · {roleName(u.role)}</div>
+                </div>
+                <div className="center gap-sm" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <Badge kind={active ? 'sage' : 'free'} dot={active ? 'var(--success)' : 'var(--muted)'}>{active ? 'Aktif' : 'Pasif'}</Badge>
+                  {isOwner && <Button sm variant="ghost" onClick={() => openEdit(u)}>Düzenle</Button>}
+                  {(isOwner || self) && <Button sm variant="ghost" onClick={() => openPw(u)}>Şifre</Button>}
+                  {isOwner && <Button sm variant="ghost" onClick={() => onToggleActive(u)}>{active ? 'Pasif yap' : 'Aktif yap'}</Button>}
+                </div>
               </div>
-              <Badge kind={u.on ? 'sage' : 'free'} dot={u.on ? 'var(--success)' : 'var(--muted)'}>{u.on ? 'Aktif' : 'Pasif'}</Badge>
-            </div>
-          ))}
+            )
+          })}
+          {!FIREBASE_ENABLED && <div className="muted small" style={{ marginTop: 10 }}>Bulut kapalı — kullanıcı yönetimi için çevrimiçi (Firebase) mod gerekir.</div>}
+          {isOwner && <div className="muted small" style={{ marginTop: 10, lineHeight: 1.5 }}>
+            <b>Yeni kullanıcı</b> ile hesap açar, <b>Düzenle</b> ile ad/rol değiştirir, <b>Pasif yap</b> ile girişi engellersiniz.
+            <b> Şifre</b> ile kendi şifrenizi (ve kurulum tamamlandıysa diğer kullanıcıların şifresini) yenilersiniz.
+          </div>}
         </Panel>
 
         <div className="grid" style={{ gap: 18 }}>
@@ -212,6 +257,70 @@ export default function Settings() {
           <Button variant="ghost" style={{ color: 'var(--danger)', borderColor: '#e3b7b0' }} onClick={onWipeAll}>Her Şeyi Sıfırla (primler &amp; misafirler dahil)</Button>
         </div>
       </Panel>
+
+      {uModal && (uModal.mode === 'add' || uModal.mode === 'edit') && (
+        <Modal
+          title={uModal.mode === 'add' ? 'Yeni kullanıcı' : 'Kullanıcıyı düzenle'}
+          sub={uModal.mode === 'edit' ? '@' + uModal.u.username : 'Yeni personel giriş hesabı oluşturun'}
+          onClose={closeU}
+          footer={<>
+            <Button variant="ghost" onClick={closeU} disabled={uBusy}>Vazgeç</Button>
+            <Button icon="check" onClick={uModal.mode === 'add' ? submitAdd : submitEdit} disabled={uBusy}>{uBusy ? 'Kaydediliyor…' : 'Kaydet'}</Button>
+          </>}
+        >
+          <div className="field" style={{ marginBottom: 12 }}>
+            <label>Ad Soyad</label>
+            <input className="input" value={uForm.name} onChange={(e) => setF('name', e.target.value)} placeholder="Örn. Ayşe Yılmaz" />
+          </div>
+          {uModal.mode === 'add' && (
+            <div className="field" style={{ marginBottom: 12 }}>
+              <label>Kullanıcı adı (girişte yazılır)</label>
+              <input className="input" value={uForm.username} onChange={(e) => setF('username', e.target.value.toLowerCase())} placeholder="örn. ayse" autoCapitalize="none" />
+            </div>
+          )}
+          <div className="field" style={{ marginBottom: 12 }}>
+            <label>Rol</label>
+            <select className="select" value={uForm.role} onChange={(e) => setF('role', e.target.value)}>
+              {ROLES.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+          </div>
+          {uForm.role === 'therapist' && (
+            <div className="field" style={{ marginBottom: 12 }}>
+              <label>Bağlı terapist (yalnızca kendi randevularını görür)</label>
+              <select className="select" value={uForm.therapistId || ''} onChange={(e) => setF('therapistId', e.target.value)}>
+                <option value="">— Seçiniz —</option>
+                {(therapists || []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
+          )}
+          {uModal.mode === 'add' && (
+            <div className="field">
+              <label>Şifre (en az 6 karakter)</label>
+              <input className="input" type="text" value={uForm.password} onChange={(e) => setF('password', e.target.value)} placeholder="Giriş şifresi" autoComplete="off" />
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {uModal && uModal.mode === 'pw' && (
+        <Modal
+          title="Şifre ver / yenile"
+          sub={(uModal.u.name || '') + ' · @' + uModal.u.username}
+          onClose={closeU}
+          footer={<>
+            <Button variant="ghost" onClick={closeU} disabled={uBusy}>Vazgeç</Button>
+            <Button icon="check" onClick={submitPw} disabled={uBusy}>{uBusy ? 'Kaydediliyor…' : 'Kaydet'}</Button>
+          </>}
+        >
+          <div className="field">
+            <label>Yeni şifre (en az 6 karakter)</label>
+            <input className="input" type="text" value={uForm.password} onChange={(e) => setF('password', e.target.value)} placeholder="Yeni şifre" autoComplete="off" />
+          </div>
+          <div className="muted small" style={{ marginTop: 8, lineHeight: 1.5 }}>
+            Kullanıcı bir sonraki girişinde bu şifreyle giriş yapar.
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
