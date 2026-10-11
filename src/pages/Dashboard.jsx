@@ -36,7 +36,7 @@ function TherapistDashboard({ store, nav }) {
   const { user, todayAppointments, appointments } = store
   const mine = todayAppointments.filter((a) => a.therapistId === user.therapistId)
   const upcoming = [...mine].sort((a, b) => a.time.localeCompare(b.time))
-  const done = appointments.filter((a) => a.therapistId === user.therapistId && a.status === 'done' && (a.date || '').slice(0, 10) === ymd()).length
+  const done = appointments.filter((a) => a.therapistId === user.therapistId && ( a.status === 'done' || a.status === 'paid') && (a.date || '').slice(0, 10) === ymd()).length
   const next = upcoming[0]
 
   return (

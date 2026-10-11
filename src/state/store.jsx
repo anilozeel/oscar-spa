@@ -156,7 +156,7 @@ export function StoreProvider({ children }) {
         snap.docs.forEach((d) => {
           const a = d.data()
           const prev = seen.get(d.id)
-          const nowMine = a.therapistId === myTherapistId && !a.freeHammam && a.status !== 'done'
+          const nowMine = a.therapistId === myTherapistId && !a.freeHammam && a.status !== 'done' && a.status !== 'paid'
           // yalnızca bana YENİ atanınca (ilk yükleme ve kendi yazdıklarım hariç)
           if (!apptFirst && nowMine && prev !== myTherapistId && !d.metadata.hasPendingWrites) {
             notifyAssignment({ therapist: myName, service: a.service, time: a.time, guest: a.guest })
@@ -214,7 +214,7 @@ export function StoreProvider({ children }) {
   const findConflict = useCallback((draft, ignoreId = null) => {
     if (!draft.therapistId) return null
     for (const a of appointments) {
-      if (a.id === ignoreId || a.status === 'done' || a.hidden) continue
+      if (a.id === ignoreId || a.status === 'done' || a.status === 'paid' || a.hidden) continue
       if (!overlap(draft.time, draft.end, a.time, a.end)) continue
       if (a.therapistId === draft.therapistId) return { type: 'therapist', name: a.therapist, with: a }
     }
@@ -333,9 +333,9 @@ export function StoreProvider({ children }) {
     const commission = (!isFree && commissionUsd > 0)
       ? { id: uid(), saleId: sale.id, therapistId, therapist: therapist?.name || '', type: effType, usd: commissionUsd, paid: false, date: ymd(), createdAt: Date.now() }
       : null
-    // Ödeme tamamlanınca randevu takvimden çıkar (hidden) ve Adisyonlar arşivine düşer.
+    // Ödeme tamamlanınca randevu TAKVİMDE KALIR ("Ödeme alındı" olarak) ve Adisyonlar arşivine de düşer.
     const apptPatch = {
-      status: 'done', pay: payType, service: serviceName, price: amount, hidden: true,
+      status: 'paid', pay: payType, service: serviceName, price: amount, paid: true, paidAt: Date.now(), hidden: false,
       therapistId: isFree ? null : therapistId, therapist: isFree ? null : (therapist?.name || appt.therapist || null),
     }
 
@@ -463,7 +463,7 @@ export function StoreProvider({ children }) {
   // Bugünün randevuları (takvim tarih modeline göre; kapanmış/gizli hariç)
   const todayAppointments = useMemo(() => {
     const t = ymd()
-    return appointments.filter((a) => !a.hidden && a.status !== 'done' && apptDay(a) === t)
+    return appointments.filter((a) => !a.hidden && a.status !== 'done' && a.status !== 'paid' && apptDay(a) === t)
   }, [appointments])
 
   // Canlı KPI'lar (statik mock yerine gerçek veriden)

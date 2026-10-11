@@ -25,6 +25,7 @@ const STATUS_TAG = {
   booked: { label: 'Planlandı', kind: 'sage' },
   inservice: { label: 'İşlemde', kind: 'free' },
   done: { label: 'Tamamlandı', kind: 'vip' },
+  paid: { label: 'Ödeme alındı', kind: 'paid' },
 }
 
 export default function Appointments() {
@@ -248,7 +249,7 @@ function DayCalendar({ appts, therapists, onPick, onReschedule, onNewAt, canEdit
                   return (
                     <button key={a.id} className={`tcal-appt ${drag?.id === a.id ? 'dragging' : ''}`} {...handlers}
                       style={{ top, height: h, background: c.color, opacity: a.status === 'done' ? 0.55 : 1, cursor: canEdit ? undefined : 'pointer' }}>
-                      <div className="ta-time">{a.time} – {a.end}</div>
+                      <div className="ta-time">{a.time} – {a.end}{a.status === 'paid' ? <span className="ta-paid">✓ Ödeme alındı</span> : null}</div>
                       <div className="ta-name">{a.guest} · {a.service}{a.variant === 'package' ? ' (PAKET)' : ''}</div>
                     </button>
                   )
@@ -466,12 +467,17 @@ function EditAppt({ appt, store, onClose }) {
           <option value="booked">Planlandı</option>
           <option value="inservice">İşlemde</option>
           <option value="done">Tamamlandı</option>
+          {(status === 'paid' || appt.status === 'paid') && <option value="paid">Ödeme alındı</option>}
         </select>
       </div>
 
       {!canSave && <p className="small" style={{ color: 'var(--gold-deep)', marginTop: 12 }}>Kaydetmek için misafir adı ve geçerli telefon numarası gerekli.</p>}
 
-      {appt.status !== 'done' && (
+      {appt.status === 'paid' && (
+        <div className="small" style={{ marginTop: 12, padding: '10px 12px', borderRadius: 10, background: '#e4f3ea', color: '#17864a', fontWeight: 700 }}>✓ Ödeme alındı{appt.pay ? ` · ${({cash:'Nakit',card:'Kredi Kartı',transfer:'Havale',folio:'Odaya Yaz',package:'Paket'})[appt.pay] || appt.pay}` : ''} — randevu takvimde kalır.</div>
+      )}
+
+      {appt.status !== 'done' && appt.status !== 'paid' && (
         !payOpen ? (
           <Button block icon="pos" disabled={!canSave} style={{ marginTop: 12 }} onClick={() => setPayOpen(true)}>
             Ödeme Al

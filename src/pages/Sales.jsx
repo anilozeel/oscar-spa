@@ -16,7 +16,7 @@ export default function Sales() {
   const { visibleAppointments, sales, fmtTRY, fmtUSD, deleteSale } = store
   const onDeleteSale = (s) => { if (window.confirm(`#${s.no} adisyonu silinsin mi? (satış + prim kaldırılır)`)) deleteSale(s.id) }
   const [ticket, setTicket] = useState(null)
-  const openAppts = visibleAppointments.filter((a) => a.status !== 'done')
+  const openAppts = visibleAppointments.filter((a) => a.status !== 'done' && a.status !== 'paid')
   const todayRevenue = sales.reduce((s, x) => s + x.amount, 0)
   const todayCommission = sales.reduce((s, x) => s + x.commissionUsd, 0)
 
