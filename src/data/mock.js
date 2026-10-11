@@ -23,13 +23,14 @@ export const ACCOUNTS = [
   { username: 'bilgin', password: 'bilgin.123', role: 'manager',  name: 'Bilgin', therapistId: null, mustChange: true },
   { username: 'dita',   password: 'dita123',   role: 'therapist', name: 'Dita',   therapistId: 't1' },
   { username: 'sitti',  password: 'sitti123',  role: 'therapist', name: 'Sitti',  therapistId: 't2' },
+  { username: 'resepsiyon', password: 'onburo.123', role: 'reception', name: 'Resepsiyon', therapistId: null },
 ]
 
 // Rol bazlı menü erişimi
 export const ROLE_ACCESS = {
   owner:      '*',
   manager:    ['dashboard','appointments','guests','therapists','services','packages','sales','finance','reports','settings'],
-  reception:  ['dashboard','appointments','guests','services','packages','sales'],
+  reception:  ['appointments','guests'], // sadece randevu + misafir arama + ödeme al — hiçbir para/ciro/rapor görmez
   therapist:  ['dashboard','appointments','mycommissions'], // takvim/kendi programı + kendi primleri
   accounting: ['dashboard','sales','finance','reports'],
 }

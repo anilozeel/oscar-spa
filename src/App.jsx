@@ -22,6 +22,20 @@ function Guarded({ k, children }) {
   return canAccess(k) ? children : <Navigate to="/" replace />
 }
 
+// Ana sayfa: Dashboard parayı/ciroyu gösterir. Dashboard yetkisi olmayan rol
+// (ör. Resepsiyon) ilk erişilebilir sayfaya yönlendirilir — parayı hiç görmez.
+const HOME_ORDER = [
+  ['appointments', '/randevular'], ['guests', '/misafirler'], ['services', '/hizmetler'],
+  ['packages', '/paketler'], ['sales', '/satis'], ['finance', '/finans'],
+  ['reports', '/raporlar'], ['mycommissions', '/primlerim'], ['settings', '/ayarlar'],
+]
+function Home() {
+  const { canAccess } = useStore()
+  if (canAccess('dashboard')) return <Dashboard />
+  const first = HOME_ORDER.find(([k]) => canAccess(k))
+  return <Navigate to={first ? first[1] : '/randevular'} replace />
+}
+
 export default function App() {
   const { user, toast, sidebarOpen, setSidebarOpen } = useStore()
   const backRef = useRef({ lastBack: 0, sidebarOpen, setSidebarOpen })
@@ -57,7 +71,7 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/" element={<Home />} />
         <Route path="/randevular" element={<Guarded k="appointments"><Appointments /></Guarded>} />
         <Route path="/primlerim" element={<Guarded k="mycommissions"><MyCommissions /></Guarded>} />
         <Route path="/misafirler" element={<Guarded k="guests"><Guests /></Guarded>} />
