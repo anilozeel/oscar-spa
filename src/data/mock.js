@@ -74,7 +74,15 @@ export const services = [
   { id: 'm_sultan',  name: 'Sultan Masajı',     cat: 'Masaj', duration: 50, price: 4000, pkgPrice: 4400, hasPackage: true, roomTypes: ['vip','room'], commissionType: 'massage', icon: 'star', tag: '4 Hand' },
   { id: 'h_kese',    name: 'Kese & Köpük Hamam', cat: 'Hamam', duration: 30, price: 800, roomTypes: ['hammam'], commissionType: 'scrub', icon: 'drop' },
   { id: 'h_free',    name: 'Ücretsiz Hamam Kullanımı', cat: 'Hamam', duration: 60, price: 0, roomTypes: ['hammam'], commissionType: 'none', free: true, icon: 'drop' },
+  // Kampanyalı Paket — YALNIZCA Nakit / Havale ile ödenir (kredi kartı & odaya yazma kabul edilmez)
+  { id: 'camp_hamam', name: 'Kampanyalı Paket', cat: 'Kampanya', duration: 90, price: 1800, roomTypes: ['hammam', 'room'], commissionType: 'package', icon: 'star',
+    campaign: true, cashOnly: true, tag: 'Nakit / Havale',
+    info: 'Sauna & buhar odası · 30 dk kese & köpük · 50 dk masaj · yüz maskesi · içecek ikramı' },
 ]
+
+// Kampanyalı ürünlerde kabul edilen ödeme yöntemleri (kredi kartı & odaya yazma kabul edilmez)
+export const CAMPAIGN_PAY = ['cash', 'transfer']
+export const CAMPAIGN_PAY_NOTE = 'Bu kampanya yalnızca Nakit veya Havale ile geçerlidir. Kredi kartı ve odaya yazma kabul edilmez.'
 
 // Randevu açarken "müşteri gelince karar verecek" seçeneği (girişte belirlenir)
 export const UNDECIDED_SERVICE = {

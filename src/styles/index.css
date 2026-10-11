@@ -297,6 +297,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 .badge.sage { background: var(--sage-soft); color: var(--forest-ink); }
 .badge.free { background: var(--gold-tint); color: var(--gold-deep); }
 .badge.paid { background: #e4f3ea; color: #17864a; }
+.badge.gold { background: var(--gold-soft); color: var(--gold-deep); }
 .ta-paid { display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 800; background: rgba(255,255,255,.9); color: #17864a; border-radius: 6px; padding: 0 5px; vertical-align: middle; }
 .badge.dot { padding-left: 8px; }
 .badge .b-dot { width: 7px; height: 7px; border-radius: 50%; }

@@ -9,11 +9,40 @@ export default function Services() {
   const [add, setAdd] = useState(false)
   const massages = services.filter((s) => s.cat === 'Masaj')
   const hamam = services.filter((s) => s.cat === 'Hamam')
+  const campaigns = services.filter((s) => s.cat === 'Kampanya')
 
   return (
     <div className="page">
       <PageHead title="Hizmetler" sub="Spa & Wellness menüsü — Sadece Masaj ve Paket fiyatları, süre, oda tipi ve prim."
         action={<Button icon="plus" onClick={() => setAdd(true)}>Yeni Hizmet</Button>} />
+
+      {campaigns.map((s) => {
+        const Star = Icon[s.icon] || Icon.star
+        return (
+          <div key={s.id} className="card pad section-gap" style={{ border: '1.5px solid var(--gold-soft)', background: 'linear-gradient(135deg, var(--gold-tint), var(--surface))', position: 'relative', overflow: 'hidden' }}>
+            <div className="between" style={{ alignItems: 'flex-start' }}>
+              <div className="center gap-sm">
+                <div className="t-ic" style={{ background: '#fff', color: 'var(--gold-deep)' }}><Star /></div>
+                <div>
+                  <div className="center gap-sm">
+                    <span style={{ fontWeight: 800, fontSize: 19, color: 'var(--forest-ink)' }}>{s.name}</span>
+                    <Badge kind="gold">KAMPANYA</Badge>
+                  </div>
+                  <div className="muted small" style={{ marginTop: 4 }}>{s.info}</div>
+                </div>
+              </div>
+              <div className="right">
+                <div className="muted small">Kişi başı</div>
+                <div className="display" style={{ fontSize: 26, fontWeight: 800, color: 'var(--gold-deep)' }}>{fmtTRY(s.price)}</div>
+              </div>
+            </div>
+            <div className="small" style={{ marginTop: 14, padding: '10px 13px', borderRadius: 10, background: '#fff', color: 'var(--gold-deep)', fontWeight: 700, display: 'flex', gap: 9, alignItems: 'center', border: '1px solid var(--gold-soft)' }}>
+              <Icon.info style={{ width: 17, height: 17, flex: 'none' }} />
+              Yalnızca <b>Nakit</b> veya <b>Havale</b> ile geçerlidir — kredi kartı ve odaya yazma kabul edilmez.
+            </div>
+          </div>
+        )
+      })}
 
       <Panel title="Spa & Wellness Menü" serif
         action={

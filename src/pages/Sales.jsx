@@ -76,7 +76,7 @@ export default function Sales() {
 }
 
 function Adisyon({ appt, store, onClose }) {
-  const { therapists, services, fmtTRY, fmtUSD, commissionFor, closeTicket, activePackageFor } = store
+  const { therapists, services, fmtTRY, fmtUSD, commissionFor, closeTicket, activePackageFor, CAMPAIGN_PAY, CAMPAIGN_PAY_NOTE } = store
   const service = services.find((s) => s.id === appt.serviceId)
   const isFree = !!appt.freeHammam
   const isUndecided = !!appt.undecided
@@ -109,9 +109,16 @@ function Adisyon({ appt, store, onClose }) {
   const therapist = therapists.find((t) => t.id === therapistId)
   const changed = !isFree && appt.therapistId && appt.therapistId !== therapistId
 
-  const canFinish = !!pay && (!isUndecided || !!chosen) && (pay !== 'package' || !!activePkg) && (pay !== 'folio' || !!roomNo.trim())
+  // Kampanyalı ürün: yalnızca Nakit / Havale kabul edilir
+  const cashSvc = isUndecided ? chosen : service
+  const cashOnly = !!cashSvc?.cashOnly
+  const allowedPay = cashOnly ? (CAMPAIGN_PAY || ['cash', 'transfer']) : null
+  const payBlocked = cashOnly && !!pay && !allowedPay.includes(pay)
+
+  const canFinish = !!pay && !payBlocked && (!isUndecided || !!chosen) && (pay !== 'package' || !!activePkg) && (pay !== 'folio' || !!roomNo.trim())
 
   const finish = () => {
+    if (payBlocked) return  // kampanya: kredi kartı / odaya yazma / paket kabul edilmez
     closeTicket(appt, {
       therapistId, payType: pay, hideAfter,
       packageId: pay === 'package' ? activePkg?.id : undefined,
@@ -187,24 +194,38 @@ function Adisyon({ appt, store, onClose }) {
       {/* Ödeme tipi */}
       <div style={{ marginTop: 20 }}>
         <label className="small" style={{ fontWeight: 600, color: 'var(--ink-2)' }}>Ödeme Tipi</label>
+        {cashOnly && (
+          <div className="small" style={{ margin: '8px 0', padding: '9px 12px', borderRadius: 10, background: 'var(--gold-tint)', color: 'var(--gold-deep)', fontWeight: 600, display: 'flex', gap: 8, alignItems: 'center' }}>
+            <Icon.info style={{ width: 16, height: 16, flex: 'none' }} />
+            Kampanyalı Paket — yalnızca <b>Nakit</b> veya <b>Havale</b> kabul edilir.
+          </div>
+        )}
         <div className="center gap-sm wrap" style={{ marginTop: 8 }}>
           {PAY.map((p) => {
             const I = Icon[p.icon]
             const disabled = p.id === 'package' && !activePkg
+            const disallowed = cashOnly && !allowedPay.includes(p.id)
             return (
               <button key={p.id} disabled={disabled}
-                className={`btn ${pay === p.id ? (p.variant === 'gold' ? 'btn-gold' : 'btn-primary') : 'btn-ghost'}`}
+                className={`btn ${pay === p.id ? (disallowed ? 'btn-ghost' : (p.variant === 'gold' ? 'btn-gold' : 'btn-primary')) : 'btn-ghost'}`}
+                style={disallowed ? { opacity: pay === p.id ? 1 : 0.55, borderColor: pay === p.id ? 'var(--danger)' : undefined, color: pay === p.id ? 'var(--danger)' : undefined } : undefined}
                 onClick={() => setPay(p.id)}>
                 <I /> {p.label}
               </button>
             )
           })}
         </div>
+        {payBlocked && (
+          <div className="small" style={{ marginTop: 10, padding: '11px 13px', borderRadius: 10, background: '#fbeaea', color: 'var(--danger)', fontWeight: 700, display: 'flex', gap: 9, alignItems: 'flex-start', border: '1px solid #f0c9c4' }}>
+            <Icon.info style={{ width: 17, height: 17, flex: 'none', marginTop: 1 }} />
+            <span>{CAMPAIGN_PAY_NOTE || 'Bu kampanya yalnızca Nakit veya Havale ile geçerlidir.'} Lütfen <b>Nakit</b> ya da <b>Havale</b> seçin.</span>
+          </div>
+        )}
         {activePkg
           ? <p className="muted small" style={{ marginTop: 8 }}>Paket: <b>{activePkg.name}</b> · kalan {activePkg.total - activePkg.used} seans{pay === 'package' ? ' — bu işlemde 1 seans düşülecek' : ''}</p>
           : <p className="small" style={{ marginTop: 8, color: 'var(--gold-deep)' }}>Bu misafirin aktif paketi bulunmuyor.</p>}
 
-        {pay === 'folio' && (
+        {pay === 'folio' && !payBlocked && (
           <div className="field" style={{ marginTop: 12 }}>
             <label>Oda numarası <span style={{ color: 'var(--danger)' }}>*</span></label>
             <input className="input" value={roomNo} autoFocus onChange={(e) => setRoomNo(e.target.value)} placeholder="Örn. 216" />

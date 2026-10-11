@@ -311,7 +311,7 @@ const PAY_METHODS = [
 ]
 
 function EditAppt({ appt, store, onClose }) {
-  const { services, therapists, fmtTRY, updateAppointment, cancelAppointment, closeTicket, PACKAGE_DURATION } = store
+  const { services, therapists, fmtTRY, updateAppointment, cancelAppointment, closeTicket, PACKAGE_DURATION, CAMPAIGN_PAY, CAMPAIGN_PAY_NOTE } = store
   const [serviceId, setServiceId] = useState(appt.serviceId || 'undecided')
   const [variant, setVariant] = useState(appt.variant || 'solo')
   const [time, setTime] = useState(appt.time)
@@ -327,6 +327,10 @@ function EditAppt({ appt, store, onClose }) {
 
   const svc = services.find((s) => s.id === serviceId)  // undefined => "Girişte Belirlenecek"
   const isPackage = svc?.hasPackage && variant === 'package'
+  // Kampanyalı ürün: yalnızca Nakit / Havale kabul edilir
+  const cashOnly = !!svc?.cashOnly
+  const allowedPay = cashOnly ? (CAMPAIGN_PAY || ['cash', 'transfer']) : null
+  const payBlocked = cashOnly && !!payType && !allowedPay.includes(payType)
   const end = addMin(time, Number(dur))
   const durOptions = DURATIONS.includes(Number(dur)) ? DURATIONS : [Number(dur), ...DURATIONS]
 
@@ -365,6 +369,7 @@ function EditAppt({ appt, store, onClose }) {
   // Randevu ekranından doğrudan ödeme al — ayrı adisyon ekranına gitmeden tamamla
   const takePayment = () => {
     if (!payType) return
+    if (payBlocked) return  // kampanya: kredi kartı / odaya yazma kabul edilmez
     if (payType === 'folio' && !roomNo.trim()) return
     const t = therapists.find((x) => x.id === therapistId)
     const commissionType = svc ? (svc.hasPackage ? (isPackage ? 'package' : 'massage') : svc.commissionType) : (appt.commissionType || 'none')
@@ -488,19 +493,33 @@ function EditAppt({ appt, store, onClose }) {
               <label className="small" style={{ fontWeight: 600, color: 'var(--ink-2)' }}>Ödeme yöntemi · {fmtTRY(Number(price) || 0)}</label>
               <button className="btn btn-ghost btn-sm" onClick={() => { setPayOpen(false); setPayType(''); setRoomNo('') }}>Vazgeç</button>
             </div>
+            {cashOnly && (
+              <div className="small" style={{ marginBottom: 10, padding: '9px 12px', borderRadius: 10, background: 'var(--gold-tint)', color: 'var(--gold-deep)', fontWeight: 600, display: 'flex', gap: 8, alignItems: 'center' }}>
+                <Icon.info style={{ width: 16, height: 16, flex: 'none' }} />
+                Kampanyalı Paket — yalnızca <b>Nakit</b> veya <b>Havale</b> kabul edilir.
+              </div>
+            )}
             <div className="center gap-sm wrap">
               {PAY_METHODS.map((p) => {
                 const I = Icon[p.icon]
+                const disallowed = cashOnly && !allowedPay.includes(p.id)
                 return (
                   <button key={p.id}
-                    className={`btn ${payType === p.id ? (p.variant === 'gold' ? 'btn-gold' : 'btn-primary') : 'btn-ghost'}`}
+                    className={`btn ${payType === p.id ? (disallowed ? 'btn-ghost' : (p.variant === 'gold' ? 'btn-gold' : 'btn-primary')) : 'btn-ghost'}`}
+                    style={disallowed ? { opacity: payType === p.id ? 1 : 0.55, borderColor: payType === p.id ? 'var(--danger)' : undefined, color: payType === p.id ? 'var(--danger)' : undefined } : undefined}
                     onClick={() => setPayType(p.id)}>
                     {I ? <I /> : null} {p.label}
                   </button>
                 )
               })}
             </div>
-            {payType === 'folio' && (
+            {payBlocked && (
+              <div className="small" style={{ marginTop: 12, padding: '11px 13px', borderRadius: 10, background: '#fbeaea', color: 'var(--danger)', fontWeight: 700, display: 'flex', gap: 9, alignItems: 'flex-start', border: '1px solid #f0c9c4' }}>
+                <Icon.info style={{ width: 17, height: 17, flex: 'none', marginTop: 1 }} />
+                <span>{CAMPAIGN_PAY_NOTE || 'Bu kampanya yalnızca Nakit veya Havale ile geçerlidir.'} Lütfen <b>Nakit</b> ya da <b>Havale</b> seçin.</span>
+              </div>
+            )}
+            {payType === 'folio' && !payBlocked && (
               <div className="field" style={{ marginTop: 12 }}>
                 <label>Oda numarası <span style={{ color: 'var(--danger)' }}>*</span></label>
                 <input className="input" value={roomNo} autoFocus onChange={(e) => setRoomNo(e.target.value)} placeholder="Örn. 216" />
@@ -508,7 +527,7 @@ function EditAppt({ appt, store, onClose }) {
               </div>
             )}
             <Button block icon="check" style={{ marginTop: 12 }}
-              disabled={!payType || (payType === 'folio' && !roomNo.trim())}
+              disabled={!payType || payBlocked || (payType === 'folio' && !roomNo.trim())}
               onClick={takePayment}>
               Ödemeyi Tamamla
             </Button>
