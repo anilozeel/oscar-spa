@@ -18,7 +18,10 @@ function Toggle({ on, onChange }) {
 
 export default function Settings() {
   const { ROLES, toast, exportBackup, importBackup, wipeHistory, wipeAll, guests, appointments, packages, sales,
-    user, therapists, FIREBASE_ENABLED, spaUsers, spaAddUser, spaUpdateUser, spaSetUserActive, spaResetPassword, spaDeleteUser, changePassword } = useStore()
+    user, therapists, FIREBASE_ENABLED, spaUsers, spaAddUser, spaUpdateUser, spaSetUserActive, spaResetPassword, spaDeleteUser, changePassword, setTherapistPhone } = useStore()
+  const [waPhones, setWaPhones] = useState({})
+  const [waSaving, setWaSaving] = useState('')
+  const saveWaPhone = async (id, val) => { setWaSaving(id); await setTherapistPhone(id, val); setWaSaving('') }
   const isOwner = user?.role === 'owner'
   const roleName = (id) => (ROLES.find((r) => r.id === id) || {}).name || id
   const [uModal, setUModal] = useState(null) // { mode:'add'|'edit'|'pw', u? }
@@ -175,6 +178,31 @@ export default function Settings() {
           </Panel>
         </div>
       </div>
+
+      <Panel className="section-gap" title="WhatsApp Bildirim Numaraları (Terapist)">
+        <div className="muted small" style={{ marginBottom: 12, lineHeight: 1.5 }}>
+          Randevu oluşturulunca ilgili terapiste <b>tek dokunuşla WhatsApp</b> göndermek için numarasını girin.
+          Mesaj <b>kendi normal WhatsApp hattınızla</b> hazır açılır; yalnızca “Gönder”e basarsınız — Twilio gerekmez.
+        </div>
+        {therapists.map((t) => {
+          const val = waPhones[t.id] !== undefined ? waPhones[t.id] : (t.phone || '')
+          return (
+            <div key={t.id} className="list-row">
+              <Avatar text={t.initials} size="sm" />
+              <div className="grow">
+                <div style={{ fontWeight: 600, color: 'var(--forest-ink)' }}>{t.name}</div>
+                <div className="muted small">Terapist{t.phone ? ` · kayıtlı: ${t.phone}` : ' · numara yok'}</div>
+              </div>
+              <input className="input" style={{ maxWidth: 190 }} type="tel" placeholder="05xx xxx xx xx" value={val}
+                onChange={(e) => setWaPhones((s) => ({ ...s, [t.id]: e.target.value }))} />
+              <Button sm icon="check" disabled={!FIREBASE_ENABLED || waSaving === t.id} onClick={() => saveWaPhone(t.id, val)}>
+                {waSaving === t.id ? '…' : 'Kaydet'}
+              </Button>
+            </div>
+          )
+        })}
+        {!FIREBASE_ENABLED && <div className="muted small" style={{ marginTop: 8 }}>Bulut kapalı — numara kaydı için çevrimiçi (Firebase) mod gerekir.</div>}
+      </Panel>
 
       <Panel className="section-gap" title="Entegrasyonlar">
         <div className="grid g-2">

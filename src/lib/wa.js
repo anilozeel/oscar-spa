@@ -4,6 +4,29 @@
 
 const WA_ENDPOINT = '/spa/wa.php'
 
+// --- wa.me (tek dokunuşla gönderim — kendi normal WhatsApp hattınızla) --------
+// Numarayı E.164'e çevir (Türkiye varsayılan): 05xx / 5xx / +90xx / 90xx kabul.
+export function toE164(raw) {
+  const d = String(raw || '').replace(/\D+/g, '')
+  if (!d) return ''
+  if (d.startsWith('90')) return d
+  if (d.startsWith('0')) return '90' + d.slice(1)
+  if (d.length === 10) return '90' + d
+  return d
+}
+// Mesajı hazır şekilde WhatsApp'ta açar (personel "Gönder"e basar). Twilio GEREKMEZ.
+export function waLink(phone, body) {
+  const n = toE164(phone)
+  if (!n) return ''
+  return `https://wa.me/${n}?text=${encodeURIComponent(body || '')}`
+}
+export function openWa(phone, body) {
+  const url = waLink(phone, body)
+  if (!url) return false
+  try { window.open(url, '_blank', 'noopener') } catch { location.href = url }
+  return true
+}
+
 export async function sendWhatsApp(to, body) {
   if (!to || !body) return { ok: false, error: 'missing' }
   try {
@@ -20,8 +43,17 @@ export async function sendWhatsApp(to, body) {
 
 // Mesaj sablonlari
 export const waMsg = {
-  therapistNew: (a) =>
-    `🗓️ Yeni randevu\n${a.time}–${a.end} · ${a.service}\nMisafir: ${a.guest}`,
+  // Terapiste: yeni randevu atandi bildirimi
+  therapistNew: (a, dateLabel) =>
+    `🗓️ *Yeni Randevu — Oscar Spa*\n` +
+    `Sayın ${a.therapist || 'terapist'}, size yeni bir randevu atanmıştır:\n` +
+    `📅 ${dateLabel || ''} · ⏰ ${a.time}–${a.end}\n` +
+    `💆 ${a.service}\n` +
+    `👤 Misafir: ${a.guest || '—'}${a.phone ? ' · ' + a.phone : ''}`,
+  // Musteriye: randevu olusturuldu bilgisi
   guestNew: (a, dateLabel) =>
-    `Merhaba ${a.guest}, Oscar Spa randevunuz oluşturuldu:\n📅 ${dateLabel} · ⏰ ${a.time}\n💆 ${a.service}\nGörüşmek üzere! 🌿`,
+    `Sayın ${a.guest},\n` +
+    `${dateLabel} ${a.time} için *${a.service}* randevunuz oluşturulmuştur.\n` +
+    `Sizi aramızda görmekten mutluluk duyacağız. 🌿\n` +
+    `Oscar Seaside Hotel & Spa`,
 }

@@ -1,7 +1,6 @@
 import { createContext, useContext, useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import * as mock from '../data/mock.js'
 import { notifyAssignment } from '../lib/notify.js'
-import { sendWhatsApp, waMsg } from '../lib/wa.js'
 import { postSpaElektra } from '../lib/elektra.js'
 import { FIREBASE_ENABLED, db, auth, functions } from '../lib/firebase.js'
 import { AUTH_EMAIL_SUFFIX } from '../lib/firebaseConfig.js'
@@ -81,6 +80,7 @@ export function StoreProvider({ children }) {
   const [sales, setSales] = useState([])            // kapatılan adisyonlar (arşiv)
   const [commissions, setCommissions] = useState([]) // ödeme anında yazılan primler
   const [appUsers, setAppUsers] = useState([])       // Firestore 'appusers' roster (kullanıcı yönetimi)
+  const [therapistMeta, setTherapistMeta] = useState([]) // Firestore 'therapistmeta' (WhatsApp telefonu vb.)
   const [toasts, setToasts] = useState([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -89,6 +89,24 @@ export function StoreProvider({ children }) {
     setToasts((t) => [...t, { id, msg, kind }])
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200)
   }, [])
+
+  // Terapistler — kod (mock) + Firestore meta (WhatsApp telefonu) birleşimi.
+  // addAppointment içinde canlı telefonu okuyabilmek için ref'te de tutulur.
+  const therapists = useMemo(() => mock.therapists.map((t) => {
+    const m = therapistMeta.find((x) => String(x.id || '') === t.id)
+    return m ? { ...t, phone: (m.phone != null ? m.phone : t.phone) } : t
+  }), [therapistMeta])
+  const therapistsRef = useRef(mock.therapists)
+  useEffect(() => { therapistsRef.current = therapists }, [therapists])
+
+  const setTherapistPhone = useCallback(async (id, phone) => {
+    if (!FIREBASE_ENABLED) return { ok: false, error: 'Bulut kapalı' }
+    try {
+      await setDoc(doc(db, 'therapistmeta', String(id)), clean({ id: String(id), phone: String(phone || '').trim() }), { merge: true })
+      toast('WhatsApp numarası kaydedildi ✓')
+      return { ok: true }
+    } catch { toast('Numara kaydedilemedi', 'warn'); return { ok: false } }
+  }, [toast])
 
   // --- Auth (kullanıcı adı + şifre; Firebase Auth veya yerel) ---------------
   const login = useCallback(async (username, password) => {
@@ -212,6 +230,7 @@ export function StoreProvider({ children }) {
       sub('sales', setSales, byNewest),
       sub('commissions', setCommissions, byNewest),
       sub('appusers', setAppUsers),
+      sub('therapistmeta', setTherapistMeta),
     ]
     return () => unsubs.forEach((u) => u())
   }, [authUid, user?.therapistId, user?.name])
@@ -299,16 +318,9 @@ export function StoreProvider({ children }) {
     if (FIREBASE_ENABLED) fsSet('appointments', appt.id, appt).catch(() => toast('Randevu kaydedilemedi', 'warn'))
     else setAppointments((list) => [...list, appt])
     toast('Randevu oluşturuldu')
-    // WhatsApp bildirimleri (besteffort — Twilio proxy / wa.php)
-    try {
-      const t = appt.therapistId ? mock.therapists.find((x) => x.id === appt.therapistId) : null
-      if (t && t.phone) sendWhatsApp(t.phone, waMsg.therapistNew(appt))
-      if (appt.phone) {
-        const dl = new Date((appt.date || ymd()) + 'T00:00:00').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })
-        sendWhatsApp(appt.phone, waMsg.guestNew(appt, dl))
-      }
-    } catch { /* no-op */ }
-    // Bildirim, atanan terapistin kendi cihazında canlı veriden tetiklenir (yukarıdaki dinleyici)
+    // WhatsApp bildirimi: kendi normal hattınızla tek dokunuşla gönderilir (wa.me) —
+    // randevu oluşturma ekranındaki "WhatsApp Gönder" butonları ile. Twilio gerekmez.
+    // Terapistin kendi cihazında ayrıca canlı veriden anlık bildirim tetiklenir (dinleyici).
     return true
   }, [findConflict, toast, findOrCreateGuest])
 
@@ -628,6 +640,7 @@ export function StoreProvider({ children }) {
     KPIS: liveKpis, todayAppointments,
     FIREBASE_ENABLED,
     user, login, logout, canAccess, changePassword,
+    therapists, setTherapistPhone,
     spaUsers, spaAddUser, spaUpdateUser, spaSetUserActive, spaResetPassword, spaDeleteUser,
     appointments, visibleAppointments, addAppointment, cancelAppointment, updateAppointment, findConflict, closeTicket,
     services, addService,
