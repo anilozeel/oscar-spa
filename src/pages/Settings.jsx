@@ -2,7 +2,6 @@ import { useState, useRef } from 'react'
 import { useStore } from '../state/store.jsx'
 import { PageHead, Panel, Badge, Chip, Avatar, Button, Modal } from '../components/ui.jsx'
 import Icon from '../components/icons.jsx'
-import { sendWhatsApp } from '../lib/wa.js'
 import { spaElektraDiscover } from '../lib/elektra.js'
 
 const initialsOf = (nm) => String(nm || '').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
@@ -61,17 +60,6 @@ export default function Settings() {
   }
   const [integrations, setIntegrations] = useState({ pms: true, whatsapp: true, online: false, ai: false })
   const fileRef = useRef(null)
-  const [waPhone, setWaPhone] = useState('')
-  const [waBusy, setWaBusy] = useState(false)
-  const onWaTest = async () => {
-    const to = waPhone.trim()
-    if (!to) { toast('Numara girin', 'warn'); return }
-    setWaBusy(true)
-    const r = await sendWhatsApp(to, 'Oscar Spa test mesajı ✅ WhatsApp entegrasyonu çalışıyor.')
-    setWaBusy(false)
-    if (r.ok) toast('WhatsApp gönderildi ✅')
-    else toast('Gönderilemedi: ' + (r.detail || r.error || 'bilinmeyen'), 'warn')
-  }
   const [elk, setElk] = useState(null)
   const [elkBusy, setElkBusy] = useState(false)
   const onElkDiscover = async () => {
@@ -222,19 +210,6 @@ export default function Settings() {
               </div>
             )
           })}
-        </div>
-      </Panel>
-
-      <Panel className="section-gap" title="WhatsApp (Twilio) — Test">
-        <div className="muted small" style={{ marginBottom: 12, lineHeight: 1.5 }}>
-          Randevu oluşturulunca <b>terapiste</b> ve (numarası varsa) <b>müşteriye</b> otomatik WhatsApp gider.
-          Buradan bir test mesajı gönderebilirsiniz. <b>Sandbox</b> aşamasında yalnızca bota <b>join</b> yazıp katılan
-          numaralar mesaj alır (Dita, Sitti ve siz).
-        </div>
-        <div className="center gap-sm" style={{ flexWrap: 'wrap' }}>
-          <input className="input" style={{ maxWidth: 220 }} type="tel" placeholder="05xx xxx xx xx"
-            value={waPhone} onChange={(e) => setWaPhone(e.target.value)} />
-          <Button icon="whatsapp" disabled={waBusy} onClick={onWaTest}>{waBusy ? 'Gönderiliyor…' : 'Test WhatsApp Gönder'}</Button>
         </div>
       </Panel>
 
