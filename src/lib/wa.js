@@ -4,9 +4,10 @@
 
 const WA_ENDPOINT = '/spa/wa.php'
 
-// WhatsApp OTOMATİK bildirimi açık/kapalı. Sunucuda wa.config.json (token + phone_id)
-// hazır ve mesaj şablonları Meta'da onaylandığında mesajlar otomatik gider.
-export const WA_ENABLED = true
+// WhatsApp OTOMATİK bildirimi açık/kapalı. Numara/hat + Meta kurulumu hazır olunca
+// true yapılır; o zaman randevuda müşteri ve terapiste mesaj otomatik gider ve
+// Ayarlar'daki numara bölümü görünür. Şimdilik PASİF (hiçbir yerde görünmez).
+export const WA_ENABLED = false
 
 // Meta'da onaylattığınız mesaj şablonlarının adı ve dili (bunlarla eşleşmeli)
 export const WA_TPL = {
