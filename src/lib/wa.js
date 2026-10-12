@@ -1,12 +1,33 @@
-// WhatsApp bildirimleri — Twilio proxy (wa.php) uzerinden.
+// WhatsApp bildirimleri — Meta WhatsApp Cloud API proxy (wa.php) uzerinden.
 // Besteffort: hata olursa sessizce gecer, uygulamayi bloklamaz.
-// Auth Token sunucuda (wa.config.json) tutulur; tarayiciya gitmez.
+// Erisim token'i sunucuda (wa.config.json) tutulur; tarayiciya gitmez.
 
 const WA_ENDPOINT = '/spa/wa.php'
 
-// WhatsApp bildirimi açık/kapalı. Numara/hat hazır olunca true yapılır —
-// randevu sonrası "WhatsApp Gönder" adımı ve butonları o zaman görünür.
-export const WA_ENABLED = false
+// WhatsApp OTOMATİK bildirimi açık/kapalı. Sunucuda wa.config.json (token + phone_id)
+// hazır ve mesaj şablonları Meta'da onaylandığında mesajlar otomatik gider.
+export const WA_ENABLED = true
+
+// Meta'da onaylattığınız mesaj şablonlarının adı ve dili (bunlarla eşleşmeli)
+export const WA_TPL = {
+  guest: { name: 'randevu_olusturuldu', lang: 'tr' },     // params: [ad soyad, tarih, saat, hizmet]
+  therapist: { name: 'terapist_yeni_randevu', lang: 'tr' }, // params: [terapist, tarih, saat, hizmet, misafir]
+}
+
+// Meta Cloud API template mesajı gönder (sunucu üzerinden, otomatik).
+export async function sendTemplate(to, tpl, params) {
+  if (!WA_ENABLED || !to || !tpl || !tpl.name) return { ok: false, error: 'off' }
+  try {
+    const r = await fetch(WA_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, template: tpl.name, lang: tpl.lang || 'tr', params: params || [] }),
+    })
+    return await r.json().catch(() => ({ ok: false, error: 'bad_response' }))
+  } catch {
+    return { ok: false, error: 'network' }
+  }
+}
 
 // --- wa.me (tek dokunuşla gönderim — kendi normal WhatsApp hattınızla) --------
 // Numarayı E.164'e çevir (Türkiye varsayılan): 05xx / 5xx / +90xx / 90xx kabul.

@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import * as mock from '../data/mock.js'
 import { notifyAssignment } from '../lib/notify.js'
+import { sendTemplate, WA_TPL, WA_ENABLED } from '../lib/wa.js'
 import { postSpaElektra } from '../lib/elektra.js'
 import { FIREBASE_ENABLED, db, auth, functions } from '../lib/firebase.js'
 import { AUTH_EMAIL_SUFFIX } from '../lib/firebaseConfig.js'
@@ -17,6 +18,8 @@ const overlap = (aS, aE, bS, bE) => toMin(aS) < toMin(bE) && toMin(bS) < toMin(a
 const uid = () => 'x' + Math.random().toString(36).slice(2, 8)
 const ymd = (d = new Date()) => { const x = new Date(d); const z = (n) => String(n).padStart(2, '0'); return `${x.getFullYear()}-${z(x.getMonth() + 1)}-${z(x.getDate())}` }
 const apptDay = (a) => (a.date || ymd(new Date(a.createdAt || Date.now())))
+// WhatsApp şablonları için tarih etiketi (ör. "Pazartesi, 13 Ekim")
+const waDate = (d) => new Date((d || ymd()) + 'T00:00:00').toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' })
 // Firestore undefined kabul etmez — undefined alanları at
 const clean = (o) => { const r = {}; for (const k in o) if (o[k] !== undefined) r[k] = o[k]; return r }
 
@@ -318,9 +321,16 @@ export function StoreProvider({ children }) {
     if (FIREBASE_ENABLED) fsSet('appointments', appt.id, appt).catch(() => toast('Randevu kaydedilemedi', 'warn'))
     else setAppointments((list) => [...list, appt])
     toast('Randevu oluşturuldu')
-    // WhatsApp bildirimi: kendi normal hattınızla tek dokunuşla gönderilir (wa.me) —
-    // randevu oluşturma ekranındaki "WhatsApp Gönder" butonları ile. Twilio gerekmez.
-    // Terapistin kendi cihazında ayrıca canlı veriden anlık bildirim tetiklenir (dinleyici).
+    // WhatsApp OTOMATİK bildirim (Meta Cloud API, sunucu üzerinden — token gizli).
+    // Besteffort: config/şablon hazır değilse sessizce geçer, uygulamayı bloklamaz.
+    if (WA_ENABLED) {
+      try {
+        const dl = waDate(appt.date)
+        if (appt.phone) sendTemplate(appt.phone, WA_TPL.guest, [appt.guest || '', dl, appt.time || '', appt.service || ''])
+        const t = appt.therapistId ? therapistsRef.current.find((x) => x.id === appt.therapistId) : null
+        if (t && t.phone) sendTemplate(t.phone, WA_TPL.therapist, [t.name, dl, appt.time || '', appt.service || '', appt.guest || ''])
+      } catch { /* no-op */ }
+    }
     return true
   }, [findConflict, toast, findOrCreateGuest])
 

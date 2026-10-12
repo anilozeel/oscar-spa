@@ -11,9 +11,9 @@ name: Deploy to oscarseasidehotel.com/spa (FTP)
 # Bu uc secret eklenince her push otomatik yayinlanir.
 #
 # WhatsApp (Twilio) icin (bir kez) ayrica:
-#   TWILIO_SID        = AC... (Account SID)
-#   TWILIO_AUTH_TOKEN = ...   (Auth Token - GIZLI)
-#   TWILIO_FROM       = whatsapp:+17372508034  (opsiyonel; bos ise sandbox numarasi)
+#   WA_TOKEN    = EAAG...  (Meta kalici WhatsApp erisim token'i - GIZLI)
+#   WA_PHONE_ID = 1234567890  (WhatsApp telefon numarasi ID'si / Phone number ID)
+#   WA_KEY      = (opsiyonel) ekstra paylasilan anahtar; bos birakilabilir
 # Bu secret'ler eklenince deploy sirasinda public_html/spa/wa.config.json
 # otomatik olusturulur; token repoya/tarayiciya girmez.
 
@@ -49,22 +49,24 @@ jobs:
           echo "" >> dist/sw.js
           echo "// build: $(date -u +%Y%m%d%H%M%S) ${GITHUB_SHA::7}" >> dist/sw.js
 
-      - name: Twilio WhatsApp config olustur (gizli, loglanmaz)
+      - name: WhatsApp Cloud API config olustur (gizli, loglanmaz)
         env:
-          TW_SID: ${{ secrets.TWILIO_SID }}
-          TW_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
-          TW_FROM: ${{ secrets.TWILIO_FROM }}
+          WA_TOKEN: ${{ secrets.WA_TOKEN }}
+          WA_PHONE_ID: ${{ secrets.WA_PHONE_ID }}
+          WA_KEY: ${{ secrets.WA_KEY }}
         run: |
-          FROM="${TW_FROM:-whatsapp:+17372508034}"
           cat > dist/wa.config.json <<EOF
           {
-            "sid": "${TW_SID}",
-            "token": "${TW_TOKEN}",
-            "from": "${FROM}",
-            "key": ""
+            "token": "${WA_TOKEN}",
+            "phone_id": "${WA_PHONE_ID}",
+            "key": "${WA_KEY}"
           }
           EOF
-          echo "wa.config.json olusturuldu (sid uzunluk: ${#TW_SID}, token uzunluk: ${#TW_TOKEN}, from: ${FROM})"
+          if [ -n "$WA_TOKEN" ] && [ -n "$WA_PHONE_ID" ]; then
+            echo "wa.config.json olusturuldu (token uzunluk: ${#WA_TOKEN}, phone_id uzunluk: ${#WA_PHONE_ID})"
+          else
+            echo "UYARI: WA_TOKEN/WA_PHONE_ID secret'leri bos — WhatsApp gonderimi pasif kalir."
+          fi
 
       - name: Yukle - /spa (FTP)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5

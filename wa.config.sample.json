@@ -1,6 +1,5 @@
 {
-  "sid": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-  "token": "BURAYA_TWILIO_AUTH_TOKEN",
-  "from": "whatsapp:+17372508034",
+  "token": "EAAG_BURAYA_KALICI_WHATSAPP_ERISIM_TOKENI",
+  "phone_id": "WHATSAPP_PHONE_NUMBER_ID",
   "key": ""
 }

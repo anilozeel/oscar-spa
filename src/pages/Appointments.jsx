@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from 'react'
 import { useStore } from '../state/store.jsx'
 import { PageHead, Panel, Button, Badge, Modal, Helper } from '../components/ui.jsx'
 import Icon from '../components/icons.jsx'
-import { openWa, waMsg, WA_ENABLED } from '../lib/wa.js'
+import { WA_ENABLED } from '../lib/wa.js'
 
 const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
 const fmtMin = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
@@ -12,25 +12,6 @@ const ymd = (d) => { const x = new Date(d); const z = (n) => String(n).padStart(
 // Randevunun gün anahtarı: date alanı yoksa oluşturulma gününe bağla (eski kayıtlar takvimde kaymasın)
 const apptDay = (a) => a.date || ymd(new Date(a.createdAt || Date.now()))
 
-// WhatsApp: tarih etiketi + "tek dokunuşla gönder" butonları (kendi normal hattınızla)
-const waDateLabel = (a) => new Date((a.date || ymd(new Date())) + 'T00:00:00')
-  .toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' })
-function WaSendRow({ appt, therapists }) {
-  const t = appt.therapistId ? therapists.find((x) => x.id === appt.therapistId) : null
-  const dl = waDateLabel(appt)
-  const custBody = waMsg.guestNew(appt, dl)
-  const therBody = waMsg.therapistNew({ ...appt, therapist: appt.therapist || t?.name }, dl)
-  return (
-    <div className="center gap-sm wrap" style={{ marginTop: 10 }}>
-      {appt.phone
-        ? <button className="btn btn-primary btn-sm" onClick={() => openWa(appt.phone, custBody)}><Icon.whatsapp /> Müşteriye WhatsApp</button>
-        : <span className="muted small">Müşteri telefonu yok</span>}
-      {t && (t.phone
-        ? <button className="btn btn-ghost btn-sm" onClick={() => openWa(t.phone, therBody)}><Icon.whatsapp /> {t.name}’e WhatsApp</button>
-        : <span className="muted small">· {t.name} için numara yok (Ayarlar’dan ekleyin)</span>)}
-    </div>
-  )
-}
 
 const SLOTS = []
 for (let h = 9; h <= 23; h++) { SLOTS.push(`${String(h).padStart(2, '0')}:00`); if (h < 23) SLOTS.push(`${String(h).padStart(2, '0')}:30`) }
@@ -500,9 +481,9 @@ function EditAppt({ appt, store, onClose }) {
       {!canSave && <p className="small" style={{ color: 'var(--gold-deep)', marginTop: 12 }}>Kaydetmek için misafir adı ve geçerli telefon numarası gerekli.</p>}
 
       {WA_ENABLED && canSave && (
-        <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed var(--line)' }}>
-          <label className="small" style={{ fontWeight: 600, color: 'var(--ink-2)' }}>WhatsApp bildirimi</label>
-          <WaSendRow appt={{ ...appt, time, end, service: svc ? svc.name : appt.service, therapistId: therapistId || null, therapist: undefined, guest: guestName.trim(), phone: phone.trim() }} therapists={therapists} />
+        <div className="muted small" style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed var(--line)', display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Icon.whatsapp style={{ width: 16, height: 16, flex: 'none', color: 'var(--sage-deep)' }} />
+          WhatsApp bildirimi randevu oluşturulunca müşteriye ve terapiste otomatik gönderilir.
         </div>
       )}
 
@@ -571,7 +552,6 @@ function NewAppointment({ store, prefill, onClose }) {
   const { services, therapists, fmtTRY, addAppointment, findConflict, guests,
           UNDECIDED_SERVICE, PACKAGE_DURATION, PACKAGE_INFO } = store
   const [step, setStep] = useState(0)
-  const [created, setCreated] = useState(null)   // randevu oluşturuldu → WhatsApp gönder adımı
   const [svc, setSvc] = useState(null)
   const [variant, setVariant] = useState('solo')
   const [time, setTime] = useState(prefill?.time || '15:00')
@@ -622,7 +602,8 @@ function NewAppointment({ store, prefill, onClose }) {
       price, status: 'booked', pay: null, freeHammam: isFree, undecided: isUndecided,
     }
     const ok = addAppointment(apptData)
-    if (ok) { if (WA_ENABLED) { setCreated(apptData) } else { onClose() } }   // WA açıksa gönder adımı, değilse kapat
+    // WhatsApp bildirimi otomatik gider (addAppointment içinde, Cloud API). Ekranı kapat.
+    if (ok) onClose()
   }
 
   const realStep = STEPS[step]
@@ -631,22 +612,6 @@ function NewAppointment({ store, prefill, onClose }) {
     realStep === 'Süre & Saat' ? !!time :
     realStep === 'Terapist' ? !!therapistId : true
   const canConfirm = guestName.trim() && phoneOk(phone)
-
-  if (created) {
-    return (
-      <Modal title="Randevu Oluşturuldu" sub={`${created.guest} · ${waDateLabel(created)} ${created.time}`} onClose={onClose}
-        footer={<Button icon="check" onClick={onClose}>Bitti</Button>}>
-        <div style={{ textAlign: 'center', padding: '6px 0 2px' }}>
-          <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#e4f3ea', color: '#17864a', display: 'grid', placeItems: 'center', margin: '0 auto 12px' }}><Icon.check style={{ width: 28, height: 28 }} /></div>
-          <div style={{ fontWeight: 700, fontSize: 17, color: 'var(--forest-ink)' }}>Randevu oluşturuldu ✓</div>
-          <p className="muted small" style={{ marginTop: 6, lineHeight: 1.5 }}>WhatsApp bildirimi için aşağıdaki butona dokunun — mesaj hazır olarak açılır, yalnızca <b>Gönder</b>’e basmanız yeterli.</p>
-        </div>
-        <div className="card" style={{ background: 'var(--surface-2)', marginTop: 8 }}>
-          <WaSendRow appt={created} therapists={therapists} />
-        </div>
-      </Modal>
-    )
-  }
 
   return (
     <Modal title="Yeni Randevu" sub="Hizmeti seçin; sistem uygun terapisti önersin." onClose={onClose} wide
