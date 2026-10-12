@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from 'react'
 import { useStore } from '../state/store.jsx'
 import { PageHead, Panel, Button, Badge, Modal, Helper } from '../components/ui.jsx'
 import Icon from '../components/icons.jsx'
-import { openWa, waMsg } from '../lib/wa.js'
+import { openWa, waMsg, WA_ENABLED } from '../lib/wa.js'
 
 const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
 const fmtMin = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
@@ -499,7 +499,7 @@ function EditAppt({ appt, store, onClose }) {
 
       {!canSave && <p className="small" style={{ color: 'var(--gold-deep)', marginTop: 12 }}>Kaydetmek için misafir adı ve geçerli telefon numarası gerekli.</p>}
 
-      {canSave && (
+      {WA_ENABLED && canSave && (
         <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed var(--line)' }}>
           <label className="small" style={{ fontWeight: 600, color: 'var(--ink-2)' }}>WhatsApp bildirimi</label>
           <WaSendRow appt={{ ...appt, time, end, service: svc ? svc.name : appt.service, therapistId: therapistId || null, therapist: undefined, guest: guestName.trim(), phone: phone.trim() }} therapists={therapists} />
@@ -622,7 +622,7 @@ function NewAppointment({ store, prefill, onClose }) {
       price, status: 'booked', pay: null, freeHammam: isFree, undecided: isUndecided,
     }
     const ok = addAppointment(apptData)
-    if (ok) setCreated(apptData)   // kapatma yerine WhatsApp gönder adımını göster
+    if (ok) { if (WA_ENABLED) { setCreated(apptData) } else { onClose() } }   // WA açıksa gönder adımı, değilse kapat
   }
 
   const realStep = STEPS[step]

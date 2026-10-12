@@ -3,6 +3,7 @@ import { useStore } from '../state/store.jsx'
 import { PageHead, Panel, Badge, Chip, Avatar, Button, Modal } from '../components/ui.jsx'
 import Icon from '../components/icons.jsx'
 import { spaElektraDiscover } from '../lib/elektra.js'
+import { WA_ENABLED } from '../lib/wa.js'
 
 const initialsOf = (nm) => String(nm || '').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
 
@@ -167,7 +168,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <Panel className="section-gap" title="WhatsApp Bildirim Numaraları (Terapist)">
+      {WA_ENABLED && <Panel className="section-gap" title="WhatsApp Bildirim Numaraları (Terapist)">
         <div className="muted small" style={{ marginBottom: 12, lineHeight: 1.5 }}>
           Randevu oluşturulunca ilgili terapiste <b>tek dokunuşla WhatsApp</b> göndermek için numarasını girin.
           Mesaj <b>kendi normal WhatsApp hattınızla</b> hazır açılır; yalnızca “Gönder”e basarsınız — Twilio gerekmez.
@@ -190,7 +191,7 @@ export default function Settings() {
           )
         })}
         {!FIREBASE_ENABLED && <div className="muted small" style={{ marginTop: 8 }}>Bulut kapalı — numara kaydı için çevrimiçi (Firebase) mod gerekir.</div>}
-      </Panel>
+      </Panel>}
 
       <Panel className="section-gap" title="Entegrasyonlar">
         <div className="grid g-2">

@@ -4,6 +4,10 @@
 
 const WA_ENDPOINT = '/spa/wa.php'
 
+// WhatsApp bildirimi açık/kapalı. Numara/hat hazır olunca true yapılır —
+// randevu sonrası "WhatsApp Gönder" adımı ve butonları o zaman görünür.
+export const WA_ENABLED = false
+
 // --- wa.me (tek dokunuşla gönderim — kendi normal WhatsApp hattınızla) --------
 // Numarayı E.164'e çevir (Türkiye varsayılan): 05xx / 5xx / +90xx / 90xx kabul.
 export function toE164(raw) {
