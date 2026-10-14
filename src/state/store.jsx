@@ -26,6 +26,9 @@ const clean = (o) => { const r = {}; for (const k in o) if (o[k] !== undefined) 
 // --- Firestore yardımcıları (yalnızca Firebase aktifken) --------------------
 const fsSet = (coll, id, data) => setDoc(doc(db, coll, id), clean(data))
 const fsUpdate = (coll, id, patch) => updateDoc(doc(db, coll, id), clean(patch))
+// Birleştirerek yaz: belge yoksa oluşturur, varsa alanları günceller. updateDoc
+// "belge yok" diye patlamaz; ödeme gibi KRİTİK yazımlarda yarış durumuna dayanıklıdır.
+const fsSetMerge = (coll, id, patch) => setDoc(doc(db, coll, id), clean(patch), { merge: true })
 const fsDelete = (coll, id) => deleteDoc(doc(db, coll, id))
 
 const loadUser = () => {
@@ -400,14 +403,34 @@ export function StoreProvider({ children }) {
       therapistId: isFree ? null : therapistId, therapist: isFree ? null : (therapist?.name || appt.therapist || null),
     }
 
+    // Başarı mesajı (prim bilgisi dahil) — ödeme GERÇEKTEN işlendiğinde gösterilir.
+    const okMsg = isFree
+      ? 'Ücretsiz işlem tamamlandı — prim yazılmadı'
+      : fromPackage
+        ? `Paketten 1 seans düşüldü — prim ${therapist?.name}'e yazıldı (${mock.fmtUSD(commissionUsd)})`
+        : `Ödeme alındı — prim ${therapist?.name}'e yazıldı (${mock.fmtUSD(commissionUsd)})`
+
     if (FIREBASE_ENABLED) {
       fsSet('sales', sale.id, sale).catch(() => toast('Adisyon kaydedilemedi', 'warn'))
       if (commission) fsSet('commissions', commission.id, commission).catch(() => {})
-      fsUpdate('appointments', appt.id, apptPatch).catch(() => {})
+      // Randevuyu "Ödeme alındı" olarak işaretle. KRİTİK: hata ARTIK yutulmuyor.
+      // 1) Anlık yerel güncelleme → rozet ("✓ Ödeme alındı") hemen görünür, buluta
+      //    gidip gelmeyi beklemez. 2) merge-set yarış durumuna dayanıklı. 3) Yazım
+      //    başarısız olursa güncelleme geri alınır ve kullanıcı net uyarılır; asla
+      //    sahte "ödeme alındı" gösterilmez.
+      setAppointments((l) => l.map((a) => (a.id === appt.id ? { ...a, ...apptPatch } : a)))
+      fsSetMerge('appointments', appt.id, apptPatch)
+        .then(() => toast(okMsg))
+        .catch(() => {
+          setAppointments((l) => l.map((a) => (a.id === appt.id
+            ? { ...a, status: appt.status, pay: appt.pay, paid: !!appt.paid, hidden: !!appt.hidden } : a)))
+          toast('⚠️ Ödeme kaydedilemedi — bağlantıyı kontrol edip tekrar deneyin. Randevu açık bırakıldı.', 'warn')
+        })
     } else {
       setSales((s) => [sale, ...s])
       if (commission) setCommissions((c) => [commission, ...c])
       setAppointments((l) => l.map((a) => (a.id === appt.id ? { ...a, ...apptPatch } : a)))
+      toast(okMsg)
     }
     if (fromPackage && packageId) usePackageSession(packageId)
 
@@ -426,11 +449,7 @@ export function StoreProvider({ children }) {
       }
     }
 
-    toast(isFree
-      ? 'Ücretsiz işlem tamamlandı — prim yazılmadı'
-      : fromPackage
-        ? `Paketten 1 seans düşüldü — prim ${therapist?.name}'e yazıldı (${mock.fmtUSD(commissionUsd)})`
-        : `Ödeme alındı — prim ${therapist?.name}'e yazıldı (${mock.fmtUSD(commissionUsd)})`)
+    // Başarı/başarısızlık bildirimi yukarıda (yazımın gerçek sonucuna göre) verildi.
     return sale
   }, [toast, usePackageSession])
 
