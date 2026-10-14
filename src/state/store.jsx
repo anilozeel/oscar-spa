@@ -554,14 +554,18 @@ export function StoreProvider({ children }) {
     const closed = todaySales.length
     const basket = closed ? Math.round(revenue / closed) : 0
     const apptsToday = appointments.filter((a) => apptDay(a) === t)
+    // BUGÜNKÜ benzersiz misafir sayısı — tüm CRM kaydı değil. Aynı misafir gün içinde
+    // birden çok randevu alsa bir kez sayılır (guestId varsa ona, yoksa ad+telefona göre).
+    const gKey = (a) => a.guestId || `${(a.guest || '').trim().toLocaleLowerCase('tr')}|${String(a.phone || '').replace(/\D/g, '')}`
+    const guestsToday = new Set(apptsToday.filter((a) => (a.guest || '').trim()).map(gKey)).size
     return {
       revenue: { label: 'Günlük Ciro', value: mock.fmtTRY(revenue), delta: null },
       occupancy: { label: 'Doluluk', value: '—', delta: null },
       appts: { label: 'Bugünkü Randevu', value: String(apptsToday.length), delta: null },
-      guests: { label: 'Misafir Sayısı', value: String(guests.length), delta: null },
+      guests: { label: 'Bugünkü Misafir', value: String(guestsToday), delta: null },
       basket: { label: 'Ortalama Sepet', value: mock.fmtTRY(basket), delta: null },
     }
-  }, [sales, appointments, guests])
+  }, [sales, appointments])
 
   // --- Kullanıcı yönetimi (Ayarlar) -----------------------------------------
   // Görünen kullanıcı listesi = seed ACCOUNTS ⊕ Firestore roster (ekleme/ezme).
