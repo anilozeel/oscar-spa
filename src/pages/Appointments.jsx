@@ -313,7 +313,7 @@ const PAY_METHODS = [
 ]
 
 function EditAppt({ appt, store, onClose }) {
-  const { services, therapists, fmtTRY, updateAppointment, cancelAppointment, closeTicket, PACKAGE_DURATION, CAMPAIGN_PAY, CAMPAIGN_PAY_NOTE } = store
+  const { services, therapists, fmtTRY, updateAppointment, cancelAppointment, closeTicket, activePackageFor, PACKAGE_DURATION, CAMPAIGN_PAY, CAMPAIGN_PAY_NOTE } = store
   const [serviceId, setServiceId] = useState(appt.serviceId || 'undecided')
   const [variant, setVariant] = useState(appt.variant || 'solo')
   const [time, setTime] = useState(appt.time)
@@ -329,10 +329,12 @@ function EditAppt({ appt, store, onClose }) {
 
   const svc = services.find((s) => s.id === serviceId)  // undefined => "Girişte Belirlenecek"
   const isPackage = svc?.hasPackage && variant === 'package'
-  // Kampanyalı ürün: yalnızca Nakit / Havale kabul edilir
+  // Misafirin aktif (kullanılmamış seansı olan) paketi varsa "Paketten Düş" sunulur
+  const activePkg = activePackageFor(appt.guestId)
+  // Kampanyalı ürün: yalnızca Nakit / Havale kabul edilir (paketten düşme bu kuralın dışında)
   const cashOnly = !!svc?.cashOnly
   const allowedPay = cashOnly ? (CAMPAIGN_PAY || ['cash', 'transfer']) : null
-  const payBlocked = cashOnly && !!payType && !allowedPay.includes(payType)
+  const payBlocked = cashOnly && !!payType && payType !== 'package' && !allowedPay.includes(payType)
   const end = addMin(time, Number(dur))
   const durOptions = DURATIONS.includes(Number(dur)) ? DURATIONS : [Number(dur), ...DURATIONS]
 
@@ -373,6 +375,7 @@ function EditAppt({ appt, store, onClose }) {
     if (!payType) return
     if (payBlocked) return  // kampanya: kredi kartı / odaya yazma kabul edilmez
     if (payType === 'folio' && !roomNo.trim()) return
+    if (payType === 'package' && !activePkg) return  // paketi yoksa paketten düşülemez
     const t = therapists.find((x) => x.id === therapistId)
     const commissionType = svc ? (svc.hasPackage ? (isPackage ? 'package' : 'massage') : svc.commissionType) : (appt.commissionType || 'none')
     const serviceName = (svc ? svc.name : 'Girişte Belirlenecek') + (isPackage ? ' · Paket' : '')
@@ -396,6 +399,7 @@ function EditAppt({ appt, store, onClose }) {
     closeTicket(liveAppt, {
       therapistId, payType,
       roomNo: payType === 'folio' ? roomNo.trim() : undefined,
+      packageId: payType === 'package' ? activePkg?.id : undefined,
       override: { serviceName, price: Number(price), commissionType },
     })
     onClose()
@@ -521,7 +525,17 @@ function EditAppt({ appt, store, onClose }) {
                   </button>
                 )
               })}
+              {activePkg && (
+                <button className={`btn ${payType === 'package' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setPayType('package')}>
+                  {Icon.package ? <Icon.package /> : null} Paketten Düş
+                </button>
+              )}
             </div>
+            {activePkg && (
+              <p className="muted small" style={{ marginTop: 10 }}>
+                Paket: <b>{activePkg.name}</b> · kalan {activePkg.total - activePkg.used} seans{payType === 'package' ? ' — bu işlemde 1 seans düşülecek (₺0)' : ''}
+              </p>
+            )}
             {payBlocked && (
               <div className="small" style={{ marginTop: 12, padding: '11px 13px', borderRadius: 10, background: '#fbeaea', color: 'var(--danger)', fontWeight: 700, display: 'flex', gap: 9, alignItems: 'flex-start', border: '1px solid #f0c9c4' }}>
                 <Icon.info style={{ width: 17, height: 17, flex: 'none', marginTop: 1 }} />
@@ -536,9 +550,9 @@ function EditAppt({ appt, store, onClose }) {
               </div>
             )}
             <Button block icon="check" style={{ marginTop: 12 }}
-              disabled={!payType || payBlocked || (payType === 'folio' && !roomNo.trim())}
+              disabled={!payType || payBlocked || (payType === 'folio' && !roomNo.trim()) || (payType === 'package' && !activePkg)}
               onClick={takePayment}>
-              Ödemeyi Tamamla
+              {payType === 'package' ? 'Paketten Düş — Tamamla' : 'Ödemeyi Tamamla'}
             </Button>
           </div>
         )
