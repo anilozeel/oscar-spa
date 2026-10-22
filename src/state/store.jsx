@@ -357,10 +357,32 @@ export function StoreProvider({ children }) {
     }
     if (FIREBASE_ENABLED) fsUpdate('appointments', id, finalPatch).catch(() => toast('Güncellenemedi', 'warn'))
     else setAppointments((l) => l.map((a) => (a.id === id ? { ...a, ...finalPatch } : a)))
+
+    // ÖDEME ALINIP ADİSYON KAPANDIKTAN SONRA bile terapist değişirse, primi (ve
+    // adisyondaki terapisti) İLK kaydolana değil, YENİ terapiste taşı.
+    const newTid = patch.therapistId
+    if (newTid && newTid !== cur.therapistId && (cur.status === 'paid' || cur.status === 'done')) {
+      const newT = mock.therapists.find((t) => t.id === newTid)
+      const newName = newT?.name || patch.therapist || null
+      let moved = false
+      sales.filter((s) => s.apptId === id && (s.therapistId != null || s.therapist)).forEach((s) => {
+        const sp = { therapistId: newTid, therapist: newName }
+        if (FIREBASE_ENABLED) fsUpdate('sales', s.id, sp).catch(() => {})
+        else setSales((l) => l.map((x) => (x.id === s.id ? { ...x, ...sp } : x)))
+        commissions.filter((c) => c.saleId === s.id).forEach((c) => {
+          const cp = { therapistId: newTid, therapist: newName }
+          if (FIREBASE_ENABLED) fsUpdate('commissions', c.id, cp).catch(() => {})
+          else setCommissions((l) => l.map((x) => (x.id === c.id ? { ...x, ...cp } : x)))
+          moved = true
+        })
+      })
+      if (moved && !opts.silent) toast(`Prim ${newName}'e taşındı`)
+    }
+
     if (!opts.silent) toast('Randevu güncellendi')
     // Terapist değişiminde bildirim, ilgili terapistin cihazında canlı veriden tetiklenir
     return true
-  }, [appointments, findConflict, toast, findOrCreateGuest])
+  }, [appointments, sales, commissions, findConflict, toast, findOrCreateGuest])
 
   // --- Paket yardımcıları ---------------------------------------------------
   const activePackageFor = useCallback(
