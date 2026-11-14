@@ -2,12 +2,18 @@ import { useState, useMemo } from 'react'
 import { useStore } from '../state/store.jsx'
 import { PageHead, Panel, Stat, Button, Chip } from '../components/ui.jsx'
 import Icon from '../components/icons.jsx'
+import { monthKeyOf, monthLabel, listMonths } from '../lib/period.js'
 
 const fmtTRYv = (n) => '₺' + Math.round(Number(n) || 0).toLocaleString('tr-TR')
 
 export default function Reports() {
   const { therapists, fmtUSD, aiSuggestions, toast, sales, commissions, appointments, guests, packages } = useStore()
   const [open, setOpen] = useState(null)
+
+  // Terapist primleri aylık — ay seçici (varsayılan: içinde bulunulan ay)
+  const months = useMemo(() => listMonths(commissions), [commissions])
+  const [selMonth, setSelMonth] = useState(() => monthKeyOf())
+  const curMonth = months.includes(selMonth) ? selMonth : (months[0] || monthKeyOf())
 
   // --- Canlı toplamlar (tüm veriden) -------------------------------------
   const totals = useMemo(() => {
@@ -29,11 +35,12 @@ export default function Reports() {
     return [...m.values()].sort((a, b) => b.total - a.total)
   }, [sales])
 
-  // --- Terapist performansı (canlı: prim = commissions, işlem = komisyon adedi) ---
+  // --- Terapist performansı (canlı: prim = commissions, işlem = komisyon adedi · seçili ay) ---
   const byTherapist = useMemo(() => {
     const m = new Map()
     for (const t of therapists) m.set(t.id, { id: t.id, name: t.name, count: 0, usd: 0 })
     for (const c of commissions) {
+      if (monthKeyOf(c.date) !== curMonth) continue
       const r = m.get(c.therapistId) || { id: c.therapistId, name: c.therapist || '—', count: 0, usd: 0 }
       r.count++; r.usd += Number(c.usd) || 0
       m.set(c.therapistId, r)
@@ -41,7 +48,7 @@ export default function Reports() {
     const arr = [...m.values()]
     const max = Math.max(1, ...arr.map((r) => r.count))
     return arr.map((r) => ({ ...r, load: Math.round((r.count / max) * 100) })).sort((a, b) => b.usd - a.usd)
-  }, [therapists, commissions])
+  }, [therapists, commissions, curMonth])
 
   // --- Saat bazlı yoğunluk (randevulardan) -------------------------------
   const byHour = useMemo(() => {
@@ -116,7 +123,7 @@ export default function Reports() {
       ['OscarSpa — Rapor', new Date().toLocaleString('tr-TR')], [],
       ['Toplam Ciro', totals.revenue], ['Toplam Adisyon', totals.count], ['Ortalama Sepet', totals.basket], ['Misafir', totals.guests], [],
       ['Hizmet', 'Satış', 'Toplam TL'], ...byService.map((r) => [r.name, r.count, r.total]), [],
-      ['Terapist', 'İşlem', 'Prim USD'], ...byTherapist.map((t) => [t.name, t.count, t.usd]), [],
+      [`Terapist primi · ${monthLabel(curMonth)}`], ['Terapist', 'İşlem', 'Prim USD'], ...byTherapist.map((t) => [t.name, t.count, t.usd]), [],
       ['Paket', 'Misafir', 'Kullanılan', 'Toplam'], ...pkgRows.map((p) => [p.name, p.guest, p.used, p.total]),
     ]
     const csv = rows.map((r) => r.map((c) => `"${String(c ?? '')}"`).join(';')).join('\n')
@@ -143,7 +150,14 @@ export default function Reports() {
       </div>
 
       <div className="grid section-gap" style={{ gridTemplateColumns: '1fr 1fr', alignItems: 'start' }}>
-        <Panel title="Terapist Performansı">
+        <Panel title="Terapist Performansı" action={
+          <select className="select" value={curMonth} onChange={(e) => setSelMonth(e.target.value)} style={{ maxWidth: 180 }}>
+            {months.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
+          </select>
+        }>
+          {byTherapist.every((t) => t.count === 0) && (
+            <p className="muted small" style={{ marginBottom: 10 }}>{monthLabel(curMonth)} ayında prim kaydı yok.</p>
+          )}
           {byTherapist.map((t) => (
             <div key={t.id} style={{ marginBottom: 16 }}>
               <div className="between" style={{ marginBottom: 6 }}>

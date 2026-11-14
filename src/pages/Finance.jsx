@@ -2,20 +2,27 @@ import { useMemo } from 'react'
 import { useStore } from '../state/store.jsx'
 import { PageHead, Panel, Stat, Progress } from '../components/ui.jsx'
 import Icon from '../components/icons.jsx'
+import { monthKeyOf, monthLabel } from '../lib/period.js'
 
 const fmtTRYv = (n) => '₺' + Math.round(Number(n) || 0).toLocaleString('tr-TR')
 
 export default function Finance() {
   const { fmtTRY, sales, commissions, guests, fmtUSD } = useStore()
 
-  // Canlı finans (statik mock yerine gerçek satış/primlerden) — tüm kayıtlar
+  // Primler yalnızca içinde bulunulan ayı kapsar
+  const curMonth = monthKeyOf()
+  const monthCommissionUsd = useMemo(
+    () => commissions.filter((c) => monthKeyOf(c.date) === curMonth).reduce((a, c) => a + (Number(c.usd) || 0), 0),
+    [commissions, curMonth],
+  )
+
+  // Canlı finans (statik mock yerine gerçek satış/primlerden) — ciro tüm kayıtlar, prim aylık
   const fin = useMemo(() => {
     const income = sales.reduce((a, s) => a + (Number(s.amount) || 0), 0)
-    const commissionUsd = commissions.reduce((a, c) => a + (Number(c.usd) || 0), 0)
     const count = sales.length
     const basket = count ? Math.round(income / count) : 0
-    return { income, expense: 0, commissionUsd, net: income, count, basket }
-  }, [sales, commissions])
+    return { income, expense: 0, commissionUsd: monthCommissionUsd, net: income, count, basket }
+  }, [sales, monthCommissionUsd])
 
   const rows = [
     { k: 'Gelir', v: fin.income, color: 'var(--success)' },
@@ -46,7 +53,7 @@ export default function Finance() {
             </div>
           ))}
           <div className="between" style={{ marginBottom: 4 }}>
-            <span style={{ fontWeight: 500 }}>Komisyon (prim)</span>
+            <span style={{ fontWeight: 500 }}>Komisyon (prim) · {monthLabel(curMonth)}</span>
             <span className="money" style={{ color: 'var(--gold-deep)' }}>{fmtUSD(fin.commissionUsd)}</span>
           </div>
           <div className="between" style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid var(--line)' }}>
@@ -62,7 +69,7 @@ export default function Finance() {
               { k: 'Kart', v: sales.filter(s => s.payType === 'card').reduce((a, s) => a + s.amount, 0), i: 'card' },
               { k: 'Havale', v: sales.filter(s => s.payType === 'transfer').reduce((a, s) => a + s.amount, 0), i: 'finance' },
               { k: 'Odaya Yaz', v: sales.filter(s => s.payType === 'folio').reduce((a, s) => a + s.amount, 0), i: 'room' },
-              { k: 'Prim (USD)', v: null, usd: commissions.reduce((a, c) => a + (c.usd || 0), 0), i: 'therapist' },
+              { k: `Prim (USD) · ${monthLabel(curMonth)}`, v: null, usd: monthCommissionUsd, i: 'therapist' },
             ].map((c) => {
               const I = Icon[c.i]
               return (
