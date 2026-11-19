@@ -74,9 +74,9 @@ export const services = [
   { id: 'm_sultan',  name: 'Sultan Masajı',     cat: 'Masaj', duration: 50, price: 4000, pkgPrice: 4400, hasPackage: true, roomTypes: ['vip','room'], commissionType: 'massage', icon: 'star', tag: '4 Hand' },
   { id: 'h_kese',    name: 'Kese & Köpük Hamam', cat: 'Hamam', duration: 30, price: 800, roomTypes: ['hammam'], commissionType: 'scrub', icon: 'drop' },
   { id: 'h_free',    name: 'Ücretsiz Hamam Kullanımı', cat: 'Hamam', duration: 60, price: 0, roomTypes: ['hammam'], commissionType: 'none', free: true, icon: 'drop' },
-  // Kampanyalı Paket — YALNIZCA Nakit / Havale ile ödenir (kredi kartı & odaya yazma kabul edilmez)
-  { id: 'camp_hamam', name: 'Kampanyalı Paket', cat: 'Kampanya', duration: 90, price: 1800, roomTypes: ['hammam', 'room'], commissionType: 'package', icon: 'star',
-    campaign: true, cashOnly: true, tag: 'Nakit / Havale',
+  // Kampanyalı Paket — sabit 2000₺; ödeme tipi fark etmez (kart, nakit, havale, odaya yaz)
+  { id: 'camp_hamam', name: 'Kampanyalı Paket', cat: 'Kampanya', duration: 90, price: 2000, roomTypes: ['hammam', 'room'], commissionType: 'package', icon: 'star',
+    campaign: true, tag: 'Sabit 2000₺',
     info: 'Sauna & buhar odası · 30 dk kese & köpük · 50 dk masaj · yüz maskesi · içecek ikramı' },
 ]
 
