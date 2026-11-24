@@ -195,7 +195,8 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     if (!FIREBASE_ENABLED) return
     let done = false
-    const embedded = () => { try { return !!localStorage.getItem('mgrKey') && localStorage.getItem('hubAuth') === '1' } catch { return false } }
+    const inFrame = () => { try { return window.self !== window.top } catch { return true } }
+    const embedded = () => { try { return inFrame() && !!localStorage.getItem('mgrKey') && localStorage.getItem('hubAuth') === '1' } catch { return false } }
     const t = setTimeout(async () => {
       if (done) return
       if (auth.currentUser) return          // mevcut oturum geri yüklendi
