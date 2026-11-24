@@ -10,6 +10,7 @@ import MyCommissions from './pages/MyCommissions.jsx'
 import Guests from './pages/Guests.jsx'
 import Therapists from './pages/Therapists.jsx'
 import Services from './pages/Services.jsx'
+import SpaMenu from './pages/SpaMenu.jsx'
 import Packages from './pages/Packages.jsx'
 import Sales from './pages/Sales.jsx'
 import Finance from './pages/Finance.jsx'
@@ -77,6 +78,7 @@ export default function App() {
         <Route path="/misafirler" element={<Guarded k="guests"><Guests /></Guarded>} />
         <Route path="/terapistler" element={<Guarded k="therapists"><Therapists /></Guarded>} />
         <Route path="/hizmetler" element={<Guarded k="services"><Services /></Guarded>} />
+        <Route path="/spa-menu" element={<Guarded k="spamenu"><SpaMenu /></Guarded>} />
         <Route path="/paketler" element={<Guarded k="packages"><Packages /></Guarded>} />
         <Route path="/satis" element={<Guarded k="sales"><Sales /></Guarded>} />
         <Route path="/finans" element={<Guarded k="finance"><Finance /></Guarded>} />

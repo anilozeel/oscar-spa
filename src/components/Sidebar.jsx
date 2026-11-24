@@ -12,6 +12,7 @@ const NAV = [
   { key: 'therapists',   to: '/terapistler', label: 'Terapistler', icon: 'therapist' },
   { section: 'Satış & Ürün' },
   { key: 'services',     to: '/hizmetler',   label: 'Hizmetler',   icon: 'leaf' },
+  { key: 'spamenu',      to: '/spa-menu',    label: 'Spa Menü (QR)', icon: 'report' },
   { key: 'packages',     to: '/paketler',    label: 'Paket & Üyelik', icon: 'package' },
   { key: 'sales',        to: '/satis',       label: 'Satış & POS', icon: 'pos' },
   { section: 'Yönetim' },

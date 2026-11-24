@@ -29,7 +29,7 @@ export const ACCOUNTS = [
 // Rol bazlı menü erişimi
 export const ROLE_ACCESS = {
   owner:      '*',
-  manager:    ['dashboard','appointments','guests','therapists','services','packages','sales','finance','reports','settings'],
+  manager:    ['dashboard','appointments','guests','therapists','services','spamenu','packages','sales','finance','reports','settings'],
   reception:  ['appointments','guests'], // sadece randevu + misafir arama + ödeme al — hiçbir para/ciro/rapor görmez
   therapist:  ['dashboard','appointments','mycommissions'], // takvim/kendi programı + kendi primleri
   accounting: ['dashboard','sales','finance','reports'],
