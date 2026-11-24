@@ -190,6 +190,29 @@ export function StoreProvider({ children }) {
     return unsub
   }, [])
 
+  // Otelotomasyon panelinden gömülü açıldıysa: panel ana anahtarıyla otomatik Firebase girişi.
+  // Kimlik client'ta değil; aynı-origin /menu/api.php'den (yalnızca panel anahtarıyla) alınır.
+  useEffect(() => {
+    if (!FIREBASE_ENABLED) return
+    let done = false
+    const embedded = () => { try { return !!localStorage.getItem('mgrKey') && localStorage.getItem('hubAuth') === '1' } catch { return false } }
+    const t = setTimeout(async () => {
+      if (done) return
+      if (auth.currentUser) return          // mevcut oturum geri yüklendi
+      if (!embedded()) return               // yalnızca panel içinden
+      try {
+        const key = localStorage.getItem('mgrKey') || ''
+        const r = await fetch('/menu/api.php?fn=spacred', { headers: { 'X-Staff-Key': key } })
+        const j = await r.json()
+        if (j && j.ok && j.email && j.pass && !auth.currentUser) {
+          done = true
+          await signInWithEmailAndPassword(auth, j.email, j.pass)
+        }
+      } catch { /* sessiz: normal giriş ekranı kalır */ }
+    }, 1400)
+    return () => clearTimeout(t)
+  }, [])
+
   // Firestore canlı dinleyiciler (giriş yapıldıktan sonra)
   useEffect(() => {
     if (!FIREBASE_ENABLED || !authUid) return
